@@ -1,5 +1,6 @@
 install: 
   - sudo apt-get install qt4-dev-tools
+  - cd ext/; ruby extconf.rb; make
   - bundle install
 script: bundle exec rspec
 rvm:
