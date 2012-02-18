@@ -69,7 +69,7 @@ Sunscraper is thread-safe.
 License
 -------
 
-    Copyright (C) 2011 by Boris Staal Peter Zotov <p.zotov@roundlake.ru>.
+    Copyright (C) 2011 by Peter Zotov <p.zotov@roundlake.ru>.
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
