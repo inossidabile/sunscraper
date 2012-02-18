@@ -4,3 +4,7 @@ rvm:
   - 1.9.3
   - jruby-19mode
   - rbx-19mode
+notifications:
+  email:
+    - boris@roundlake.ru
+    - p.zotov@roundlake.ru
