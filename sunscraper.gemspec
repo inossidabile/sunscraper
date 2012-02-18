@@ -1,10 +1,9 @@
 # -*- encoding: utf-8 -*-
 $:.push File.expand_path("../lib", __FILE__)
-require "sunscraper/version"
 
 Gem::Specification.new do |s|
   s.name        = "sunscraper"
-  s.version     = Sunscraper::VERSION
+  s.version     = "1.0.0"
   s.authors     = ["Peter Zotov"]
   s.email       = ["whitequark@whitequark.org"]
   s.homepage    = "http://github.com/roundlake/sunscraper"

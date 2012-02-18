@@ -4,6 +4,7 @@ end
 
 require 'ffi'
 
+# @private
 module Sunscraper::Library
   extend FFI::Library
 
