@@ -6,24 +6,26 @@ Sunscraper is a gem for prerendering pages with hashbang URLs like `http://whate
 It works by loading content in the embedded web browser and waiting for a JavaScript method to be
 called.
 
-    HTML = %{
-    <html>
-    <head>
-      <script type="text/javascript">
-      document.addEventListener("DOMContentLoaded", function() {
-        document.getElementById('fuga').textContent =
-                  ("!skrow tI").split("").reverse().join("");
-        Sunscraper.finish();
-      }, true);
-      </script>
-    </head>
-    <body>
-      <div id='fuga'></div>
-    </body>
-    </html>
-    }
+```ruby
+HTML = %{
+<html>
+<head>
+  <script type="text/javascript">
+  document.addEventListener("DOMContentLoaded", function() {
+    document.getElementById('fuga').textContent =
+              ("!skrow tI").split("").reverse().join("");
+    Sunscraper.finish();
+  }, true);
+  </script>
+</head>
+<body>
+  <div id='fuga'></div>
+</body>
+</html>
+}
 
-    Sunscraper.scrape_html(HTML).include?('It works!') # => true
+Sunscraper.scrape_html(HTML).include?('It works!') # => true
+```
 
 See also [documentation][].
 

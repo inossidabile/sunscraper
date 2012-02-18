@@ -6,7 +6,7 @@ Gem::Specification.new do |s|
   s.version     = "1.0.0"
   s.authors     = ["Peter Zotov"]
   s.email       = ["whitequark@whitequark.org"]
-  s.homepage    = "http://github.com/roundlake/sunscraper"
+  s.homepage    = "http://github.com/whitequark/sunscraper"
   s.summary     = %q{A WebKit-based, JavaScript-capable HTML scraper.}
   s.description = s.summary
 
