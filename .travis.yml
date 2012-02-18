@@ -1,5 +1,5 @@
 install: sudo apt-get install qt4-dev-tools
-script: rspec
+script: bundle exec rspec
 rvm:
   - 1.9.3
   - jruby-19mode
