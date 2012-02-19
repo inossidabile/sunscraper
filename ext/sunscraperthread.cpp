@@ -3,8 +3,10 @@
 #include <QWebFrame>
 #include "sunscraperthread.h"
 #include "sunscraperproxy.h"
+#include <QtDebug>
 
 SunscraperThread *SunscraperThread::_instance;
+QMutex *SunscraperThread::_initializationLock;
 
 SunscraperThread::SunscraperThread()
 {
@@ -12,11 +14,17 @@ SunscraperThread::SunscraperThread()
 
 SunscraperThread *SunscraperThread::instance()
 {
+    _initializationLock->lock();
+    _initializationLock->unlock();
+
     return _instance;
 }
 
 void SunscraperThread::invoke()
 {
+    _initializationLock = new QMutex;
+    _initializationLock->lock();
+
 #if defined(Q_OS_LINUX) || defined(Q_OS_UNIX)
     pthread_t thread;
 
@@ -37,7 +45,11 @@ void *SunscraperThread::thread_routine(void *)
 
     QApplication app(argc, argv);
 
+    if(_instance != NULL)
+        qFatal("Attempt to invoke SunscraperThread more than once");
+
     _instance = new SunscraperThread();
+    _initializationLock->unlock();
 
     app.exec();
 

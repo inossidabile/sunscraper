@@ -2,6 +2,7 @@
 #define SUNSCRAPERTHREAD_H
 
 #include <QObject>
+#include <QMutex>
 #include <QMap>
 
 class QWebPage;
@@ -26,12 +27,14 @@ private slots:
 
 private:
     static SunscraperThread *_instance;
+    static QMutex *_initializationLock;
+
+    static void *thread_routine(void *arg);
+
     QMap<unsigned, QWebPage *> _webPages;
 
     SunscraperThread();
     SunscraperThread(SunscraperThread &);
-
-    static void *thread_routine(void *arg);
 
     QWebPage *initializeWebPage(unsigned queryId);
 };

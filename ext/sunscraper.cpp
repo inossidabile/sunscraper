@@ -19,7 +19,8 @@ Sunscraper::Sunscraper()
     _queryId = _nextQueryId++;
 
     SunscraperThread *worker = SunscraperThread::instance();
-    Q_ASSERT(worker != NULL);
+    if(worker == NULL)
+        qFatal("Attempt to run Sunscraper before thread initialization");
 
     connect(this, SIGNAL(requestLoadHtml(uint,QString)),
         worker, SLOT(loadHtml(uint,QString)), Qt::QueuedConnection);
