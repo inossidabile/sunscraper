@@ -33,7 +33,7 @@ describe Sunscraper do
     end
     Thread.new { server.start }
 
-    Sunscraper.scrape_url("http://localhost:#{PORT}/").should include('It works!')
+    Sunscraper.scrape_url("http://localhost:#{PORT}/", 15000).should include('It works!')
 
     server.stop
   end
