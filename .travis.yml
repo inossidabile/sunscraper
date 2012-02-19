@@ -1,7 +1,7 @@
-install: 
+install:
   - "sudo apt-get install qt4-dev-tools"
   - "cd ext/; ruby extconf.rb; make; cd ../;"
-  - "bundle install
+  - "bundle install"
 before_script:
   - "export DISPLAY=:99.0"
   - "sh -e /etc/init.d/xvfb start"
