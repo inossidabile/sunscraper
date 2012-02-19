@@ -1,5 +1,7 @@
 *.user
 *.o
 *.so*
+*.dylib
+*.dll
 moc_*
 Makefile

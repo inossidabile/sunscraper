@@ -5,5 +5,3 @@ pkg/*
 doc/*
 .rbx/*
 .yardoc/*
-ext/*.so
-ext/*.dylib
