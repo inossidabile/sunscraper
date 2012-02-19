@@ -28,8 +28,12 @@ void SunscraperThread::invoke()
 
 void *SunscraperThread::thread_routine(void *)
 {
-    static int argc;
-    static char **argv = {NULL};
+    /* Better error messages. */
+    int   argc   = 1;
+    char *argv[] = { (char*) "Sunscraper", NULL};
+
+    /* Why (char*)? Because argv can (theoretically) be modified. *
+     * But Qt won't do that with argv[0]. I know, trust me.       */
 
     QApplication app(argc, argv);
 
