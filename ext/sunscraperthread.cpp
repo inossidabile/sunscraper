@@ -4,19 +4,42 @@
 #include "sunscraperthread.h"
 #include "sunscraperproxy.h"
 
+SunscraperThread *SunscraperThread::_instance;
+
 SunscraperThread::SunscraperThread()
 {
 }
 
-void SunscraperThread::run()
+SunscraperThread *SunscraperThread::instance()
+{
+    return _instance;
+}
+
+void SunscraperThread::invoke()
+{
+#if defined(Q_OS_LINUX) || defined(Q_OS_UNIX)
+    pthread_t thread;
+
+    pthread_create(&thread, NULL, &SunscraperThread::thread_routine, NULL);
+#else
+#error Your platform is unsupported. Implement SunscraperThread::invoke() and send a pull request.
+#endif
+}
+
+void *SunscraperThread::thread_routine(void *)
 {
     static int argc;
     static char **argv = {NULL};
 
     QApplication app(argc, argv);
+
+    _instance = new SunscraperThread();
+
     app.exec();
 
     qFatal("Sunscraper apartment thread event loop should never end");
+
+    return NULL;
 }
 
 void SunscraperThread::loadHtml(unsigned queryId, QString html)

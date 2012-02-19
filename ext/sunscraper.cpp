@@ -18,7 +18,8 @@ Sunscraper::Sunscraper()
 
     _queryId = _nextQueryId++;
 
-    SunscraperThread *worker = SunscraperLibrary::instance()->thread();
+    SunscraperThread *worker = SunscraperThread::instance();
+    Q_ASSERT(worker != NULL);
 
     connect(this, SIGNAL(requestLoadHtml(uint,QString)),
         worker, SLOT(loadHtml(uint,QString)), Qt::QueuedConnection);

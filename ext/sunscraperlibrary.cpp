@@ -5,8 +5,7 @@ SunscraperLibrary SunscraperLibrary::_instance;
 
 SunscraperLibrary::SunscraperLibrary()
 {
-    _apartmentThread = new SunscraperThread();
-    _apartmentThread->start();
+    SunscraperThread::invoke();
 }
 
 SunscraperLibrary::~SunscraperLibrary()
@@ -17,9 +16,4 @@ SunscraperLibrary::~SunscraperLibrary()
 SunscraperLibrary *SunscraperLibrary::instance()
 {
     return &_instance;
-}
-
-SunscraperThread *SunscraperLibrary::thread()
-{
-    return _apartmentThread;
 }

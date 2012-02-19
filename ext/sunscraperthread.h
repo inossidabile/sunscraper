@@ -1,18 +1,17 @@
 #ifndef SUNSCRAPERTHREAD_H
 #define SUNSCRAPERTHREAD_H
 
-#include <QThread>
+#include <QObject>
 #include <QMap>
 
 class QWebPage;
 
-class SunscraperThread : public QThread
+class SunscraperThread : public QObject
 {
     Q_OBJECT
 public:
-    SunscraperThread();
-
-    void run();
+    static void invoke();
+    static SunscraperThread *instance();
 
 signals:
     void finished(unsigned queryId, QString result);
@@ -26,7 +25,13 @@ private slots:
     void attachAPI();
 
 private:
+    static SunscraperThread *_instance;
     QMap<unsigned, QWebPage *> _webPages;
+
+    SunscraperThread();
+    SunscraperThread(SunscraperThread &);
+
+    static void *thread_routine(void *arg);
 
     QWebPage *initializeWebPage(unsigned queryId);
 };

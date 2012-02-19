@@ -13,3 +13,5 @@ HEADERS += sunscraperlibrary.h \
     sunscraperthread.h \
     sunscraper.h \
     sunscraperproxy.h
+
+linux:LDFLAGS += -pthread
