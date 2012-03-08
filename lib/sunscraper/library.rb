@@ -1,5 +1,5 @@
-if !defined?(RUBY_ENGINE) && RUBY_VERSION =~ /^1.8/
-  raise RuntimeError, "Sunscraper does not work on Ruby MRI 1.8.x."
+if RUBY_PLATFORM =~ /darwin/i || RbConfig::CONFIG['target_os'] == 'darwin'
+  raise RuntimeError, "Sunscraper/embed does not work on OS X. Use Sunscraper/standalone."
 end
 
 require 'ffi'
@@ -12,14 +12,12 @@ module Sunscraper
 
     if Gem.win_platform?
       extension = 'dll'
-    elsif RUBY_PLATFORM =~ /darwin/i || RbConfig::CONFIG['target_os'] == 'darwin'
-      extension = 'dylib'
     else
       extension = 'so'
     end
 
     ffi_lib File.join(Gem.loaded_specs['sunscraper'].full_gem_path,
-                      'ext', "libsunscraper.#{extension}")
+                      'ext', 'embed', "libsunscraper.#{extension}")
 
     attach_function 'create',    :sunscraper_create,    [],                  :pointer
     attach_function 'load_html', :sunscraper_load_html, [:pointer, :string], :void
