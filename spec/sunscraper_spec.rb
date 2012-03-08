@@ -19,18 +19,18 @@ HTML = <<HTML
 </html>
 HTML
 
-def with_webserver
-  port = 32768 + rand(10000)
+PORT = 45555
 
-  server = WEBrick::HTTPServer.new :Port => port, :Logger => WEBrick::Log.new('/dev/null'), :AccessLog => []
+def with_webserver
+  server = WEBrick::HTTPServer.new :Port => PORT, :Logger => WEBrick::Log.new('/dev/null'), :AccessLog => []
   server.mount_proc '/' do |req, res|
     res.body = HTML
   end
   Thread.new { server.start }
 
-  yield port
+  yield PORT
 ensure
-  server.stop if server
+  server.shutdown if server
 end
 
 describe "Sunscraper::Library" do
@@ -44,7 +44,7 @@ describe "Sunscraper::Library" do
 
   it "can scrape an URL" do
     with_webserver do |port|
-      Sunscraper.scrape_url("http://localhost:#{port}/", 15000).should include('It works!')
+      Sunscraper.scrape_url("http://127.0.0.1:#{port}/", 15000).should include('It works!')
     end
   end
 
