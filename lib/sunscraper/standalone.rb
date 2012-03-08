@@ -134,6 +134,11 @@ module Sunscraper
             end
           end
         end
+      rescue Exception => e
+        $stderr.puts "Sunscraper error: #{e.class}: #{e.message}"
+        e.backtrace.each do |line|
+          $stderr.puts "  #{line}"
+        end
       ensure
         [@in, @out].each(&:close)
       end
