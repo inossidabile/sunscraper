@@ -3,8 +3,6 @@ require 'open3'
 # @private
 module Sunscraper
   module Standalone
-    attr_reader :rpc_mutex, :rpc_waiters, :rpc_queue
-
     @last_query_id = 0
 
     @rpc_mutex    = Mutex.new
@@ -19,6 +17,8 @@ module Sunscraper
     RPC_DISCARD   = 5
 
     class << self
+      attr_reader :rpc_mutex, :rpc_waiters, :rpc_results
+
       def create
         @rpc_mutex.synchronize do
           @last_query_id += 1
@@ -104,7 +104,6 @@ module Sunscraper
       end
 
       def perform(query_id, request, data)
-        p "SEND #{query_id} #{request} #{data}"
         @out.write([query_id, request, data.length, data].pack("NNNa*"))
         @out.flush
       end
@@ -124,8 +123,7 @@ module Sunscraper
         loop do
           header = @in.read(4 * 3)
           query_id, request, data_length = header.unpack("NNN")
-          p "RECV #{query_id} #{request} #{data_length}"
-          data   = @in.read(data_length) if data.length > 0
+          data   = @in.read(data_length) if data_length > 0
 
           @parent.rpc_mutex.synchronize do
             if !@parent.rpc_waiters.include?(query_id)

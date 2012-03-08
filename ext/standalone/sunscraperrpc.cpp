@@ -1,38 +1,54 @@
 #include <QFile>
+#include <QSocketNotifier>
+#include <QTimer>
+#include <QDataStream>
+#include <QApplication>
 #include <QtDebug>
 #include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <arpa/inet.h>
 #include "sunscraperrpc.h"
 #include "sunscraperworker.h"
 
-SunscraperRPC::SunscraperRPC()
+SunscraperRPC::SunscraperRPC() :
+        m_state(StateHeader)
 {
-    m_stdin = new QFile();
-    m_stdin->open(STDIN_FILENO, QIODevice::ReadOnly | QIODevice::Unbuffered);
+    fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
 
-    connect(m_stdin, SIGNAL(readyRead()), this, SLOT(onStdinReadable()));
-
-    m_stdout = new QFile();
-    m_stdout->open(STDOUT_FILENO, QIODevice::WriteOnly | QIODevice::Unbuffered);
+    m_stdinNotifier = new QSocketNotifier(STDIN_FILENO, QSocketNotifier::Read);
+    connect(m_stdinNotifier, SIGNAL(activated(int)), this, SLOT(onStdinReadable()));
 
     m_worker = new SunscraperWorker();
-
     connect(m_worker, SIGNAL(finished(uint,QString)), this, SLOT(onPageRendered(uint,QString)));
 
-    m_stdout->write(".");
+    write(STDOUT_FILENO, ".", 1);
 }
 
 SunscraperRPC::~SunscraperRPC()
 {
-    delete m_stdin;
-    delete m_stdout;
     delete m_worker;
 }
 
 void SunscraperRPC::onStdinReadable()
 {
-    qDebug() << "buf" << m_buffer.length();
+    char buf[1024];
 
-    m_buffer += m_stdin->readAll();
+    m_stdinNotifier->setEnabled(false);
+
+    while(true) {
+        int result = read(STDIN_FILENO, buf, sizeof(buf));
+
+        if(result > 0) {
+            m_buffer += QByteArray(buf, result);
+        } else if(result == -1 && errno == EWOULDBLOCK) {
+            break;
+        } else if(result == 0) {
+            QApplication::exit(0);
+        } else qFatal("Cannot read: %d, %d", result, errno);
+    }
+
+    m_stdinNotifier->setEnabled(true);
 
     bool moreData = true;
     while(moreData) {
@@ -49,8 +65,11 @@ void SunscraperRPC::onStdinReadable()
             break;
 
         case StateData:
-            if(m_buffer.length() >= m_pendingHeader.dataLength) {
-                QByteArray data = m_buffer.remove(0, m_pendingHeader.dataLength);
+            unsigned length = ntohl(m_pendingHeader.dataLength);
+
+            if(m_buffer.length() >= length) {
+                QByteArray data = m_buffer.left(length);
+                m_buffer.remove(0, length);
                 processRequest(m_pendingHeader, data);
                 m_state = StateHeader;
             } else {
@@ -64,41 +83,80 @@ void SunscraperRPC::onStdinReadable()
 
 void SunscraperRPC::processRequest(Header header, QByteArray data)
 {
-    qDebug() << "req" << header.queryId << header.requestType;
+    unsigned queryId, requestType;
 
-    switch(header.requestType) {
+    queryId     = ntohl(header.queryId);
+    requestType = ntohl(header.requestType);
+
+    switch(requestType) {
     case RPC_LOAD_HTML: {
-            m_worker->loadHtml(header.queryId, data);
+            m_worker->loadHtml(queryId, data);
 
             break;
         }
 
     case RPC_LOAD_URL: {
-            m_worker->loadUrl(header.queryId, data);
+            m_worker->loadUrl(queryId, data);
 
             break;
         }
 
     case RPC_WAIT: {
-            m_waitQueue.append(header.queryId);
+            if(m_results.contains(queryId)) {
+                Header reply;
+                reply.queryId     = htonl(queryId);
+                reply.requestType = htonl(RPC_WAIT);
+
+                sendReply(reply, QByteArray());
+            } else {
+                Q_ASSERT(!m_waitQueue.contains(queryId));
+                Q_ASSERT(!m_timers.contains(queryId));
+
+                m_waitQueue.append(queryId);
+
+                unsigned timeout;
+
+                QDataStream stream(data);
+                stream >> timeout;
+
+                QTimer *timer = new QTimer(this);
+                timer->setInterval(timeout);
+                timer->setSingleShot(true);
+                timer->start();
+                connect(timer, SIGNAL(timeout()), this, SLOT(onTimeout()));
+
+                m_timers[queryId] = timer;
+            }
 
             break;
         }
 
     case RPC_FETCH: {
             Header reply;
-            reply.queryId     = header.queryId;
-            reply.requestType = RPC_FETCH;
+            reply.queryId     = htonl(queryId);
+            reply.requestType = htonl(RPC_FETCH);
 
-            sendReply(reply, m_results[header.queryId].toLocal8Bit());
+            if(m_results.contains(queryId)) {
+                sendReply(reply, m_results[queryId].toLocal8Bit());
+            } else {
+                sendReply(reply, "!SUNSCRAPER_TIMEOUT");
+            }
 
             break;
         }
 
     case RPC_DISCARD: {
-            m_results.remove(header.queryId);
-            m_waitQueue.removeAll(header.queryId);
-            m_worker->finalize(header.queryId);
+            m_results.remove(queryId);
+            m_waitQueue.removeAll(queryId);
+
+            if(m_timers.contains(queryId)) {
+                QTimer *timer = m_timers[queryId];
+                delete timer;
+
+                m_timers.remove(queryId);
+            }
+
+            m_worker->finalize(queryId);
 
             break;
         }
@@ -111,20 +169,31 @@ void SunscraperRPC::onPageRendered(unsigned queryId, QString data)
 
     if(m_waitQueue.contains(queryId)) {
         Header reply;
-        reply.queryId     = queryId;
-        reply.requestType = RPC_WAIT;
+        reply.queryId     = htonl(queryId);
+        reply.requestType = htonl(RPC_WAIT);
 
         sendReply(reply, QByteArray());
     }
 }
 
+void SunscraperRPC::onTimeout()
+{
+    QTimer *timer = static_cast<QTimer*>(QObject::sender());
+    unsigned queryId = m_timers.key(timer);
+
+    Header reply;
+    reply.queryId     = htonl(queryId);
+    reply.requestType = htonl(RPC_WAIT);
+
+    sendReply(reply, QByteArray());
+}
+
 void SunscraperRPC::sendReply(Header header, QByteArray data)
 {
-    header.dataLength = data.length();
+    header.dataLength = htonl(data.length());
 
     QByteArray serialized((const char*) &header, sizeof(Header));
     serialized.append(data);
 
-    m_stdout->write(serialized);
-    m_stdout->flush();
+    write(STDOUT_FILENO, serialized.constData(), serialized.length());
 }

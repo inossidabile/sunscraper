@@ -6,7 +6,8 @@
 #include <QMap>
 
 class SunscraperWorker;
-class QFile;
+class QSocketNotifier;
+class QTimer;
 
 class SunscraperRPC : public QObject
 {
@@ -38,9 +39,10 @@ public:
 private slots:
     void onStdinReadable();
     void onPageRendered(unsigned queryId, QString data);
+    void onTimeout();
 
 private:
-    QFile *m_stdin, *m_stdout;
+    QSocketNotifier *m_stdinNotifier;
 
     State  m_state;
     Header m_pendingHeader;
@@ -49,6 +51,7 @@ private:
     SunscraperWorker *m_worker;
 
     QList<unsigned> m_waitQueue;
+    QMap<unsigned, QTimer*> m_timers;
     QMap<unsigned, QString> m_results;
 
     void processRequest(Header header, QByteArray data);
