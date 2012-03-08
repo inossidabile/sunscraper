@@ -5,23 +5,25 @@ module Sunscraper
   module Standalone
     attr_reader :rpc_mutex, :rpc_waiters, :rpc_queue
 
+    @last_query_id = 0
+
     @rpc_mutex    = Mutex.new
     @rpc_waiters  = {}
+    @rpc_results  = {}
     @rpc_thread   = nil
 
-    RPC_CREATE    = 0
     RPC_LOAD_HTML = 1
     RPC_LOAD_URL  = 2
-    RPC_FETCH     = 3
-    RPC_DISCARD   = 4
+    RPC_WAIT      = 3
+    RPC_FETCH     = 4
+    RPC_DISCARD   = 5
 
     class << self
       def create
-        packed = perform_rpc nil,
-          request:     RPC_CREATE,
-          want_result: true
-
-        packed.unpack("N").first
+        @rpc_mutex.synchronize do
+          @last_query_id += 1
+          @last_query_id
+        end
       end
 
       def load_html(query_id, html)
@@ -72,7 +74,7 @@ module Sunscraper
             ::Thread.stop
           end
 
-          @rpc_thread.perform(query_id, request, data)
+          @rpc_thread.perform(query_id, options[:request], data)
 
           if block
             @rpc_waiters[query_id] = Thread.current
@@ -102,22 +104,19 @@ module Sunscraper
       end
 
       def perform(query_id, request, data)
-        @out.write [query_id, request, data.length, data].pack("NNNa*")
+        p "SEND #{query_id} #{request} #{data}"
+        @out.write([query_id, request, data.length, data].pack("NNNa*"))
+        @out.flush
       end
 
       private
 
       def work
-        if Gem.win_platform?
-          extension = 'exe'
-        else
-          extension = ''
-        end
-
         executable = File.join(Gem.loaded_specs['sunscraper'].full_gem_path,
-                          'ext', 'standalone', "libsunscraper.#{extension}")
+                          'ext', 'standalone', "sunscraper#{RbConfig::CONFIG["EXEEXT"]}")
 
         @out, @in = Open3.popen2(executable)
+        @in.read(1) # "ready" signal
 
         # See above.
         @creator.wakeup
@@ -125,7 +124,8 @@ module Sunscraper
         loop do
           header = @in.read(4 * 3)
           query_id, request, data_length = header.unpack("NNN")
-          data   = @in.read(data_length)
+          p "RECV #{query_id} #{request} #{data_length}"
+          data   = @in.read(data_length) if data.length > 0
 
           @parent.rpc_mutex.synchronize do
             if !@parent.rpc_waiters.include?(query_id)

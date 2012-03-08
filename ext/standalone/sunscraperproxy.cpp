@@ -3,11 +3,11 @@
 #include "sunscraperproxy.h"
 
 SunscraperProxy::SunscraperProxy(QWebPage *parent, unsigned queryId) :
-    QObject(parent), _webPage(parent), _queryId(queryId)
+    QObject(parent), m_webPage(parent), m_queryId(queryId)
 {
 }
 
 void SunscraperProxy::finish()
 {
-    emit finished(_queryId, _webPage->mainFrame()->toHtml());
+    emit finished(m_queryId, m_webPage->mainFrame()->toHtml());
 }

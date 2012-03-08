@@ -14,11 +14,11 @@ public:
     Q_INVOKABLE void finish();
 
 signals:
-    void finished(unsigned _queryId, QString html);
+    void finished(unsigned queryId, QString html);
 
 private:
-    QWebPage *_webPage;
-    unsigned _queryId;
+    QWebPage *m_webPage;
+    unsigned m_queryId;
 };
 
 #endif // SUNSCRAPERPROXY_H

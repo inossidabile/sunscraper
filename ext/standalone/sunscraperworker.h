@@ -1,5 +1,5 @@
-#ifndef SUNSCRAPERWorker_H
-#define SUNSCRAPERWorker_H
+#ifndef SUNSCRAPERWORKER_H
+#define SUNSCRAPERWORKER_H
 
 #include <QObject>
 #include <QMutex>
@@ -31,4 +31,4 @@ private:
     QWebPage *initializeWebPage(unsigned queryId);
 };
 
-#endif // SUNSCRAPERWorker_H
+#endif // SUNSCRAPERWORKER_H
