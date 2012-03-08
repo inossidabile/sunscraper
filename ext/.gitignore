@@ -5,3 +5,4 @@
 *.dll
 moc_*
 Makefile
+standalone/sunscraper
