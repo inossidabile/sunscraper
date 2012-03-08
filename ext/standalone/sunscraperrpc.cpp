@@ -45,6 +45,7 @@ void SunscraperRPC::onStdinReadable()
             break;
         } else if(result == 0) {
             QApplication::exit(0);
+            return;
         } else qFatal("Cannot read: %d, %d", result, errno);
     }
 
