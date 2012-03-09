@@ -15,5 +15,8 @@ all:
 	cd standalone; #{qmake}
 	make -C embed
 	make -C standalone
+
+install:
+	# do nothing
   ENDM
 end
