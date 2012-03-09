@@ -5,7 +5,8 @@
 #include "sunscraperproxy.h"
 #include <QtDebug>
 
-SunscraperWorker::SunscraperWorker()
+SunscraperWorker::SunscraperWorker(QObject *parent) :
+        QObject(parent)
 {
 }
 

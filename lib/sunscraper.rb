@@ -10,6 +10,10 @@ module Sunscraper
   class ScrapeTimeout < StandardError; end
 
   class << self
+    def os_x?
+      RUBY_PLATFORM =~ /darwin/i || RbConfig::CONFIG['target_os'] == 'darwin'
+    end
+
     attr_reader :worker
     def worker=(worker_type)
       if [:embed, :standalone].include?(worker_type)
@@ -74,7 +78,7 @@ module Sunscraper
   end
 end
 
-if RUBY_PLATFORM =~ /darwin/i || RbConfig::CONFIG['target_os'] == 'darwin'
+if Sunscraper.os_x?
   # OS X is braindead
   Sunscraper.worker = :standalone
 else

@@ -12,7 +12,7 @@ class SunscraperWorker : public QObject
     Q_OBJECT
 
 public:
-    SunscraperWorker();
+    SunscraperWorker(QObject *parent = 0);
 
 signals:
     void finished(unsigned queryId, QString result);

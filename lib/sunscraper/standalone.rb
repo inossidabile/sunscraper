@@ -1,4 +1,4 @@
-require 'open3'
+require 'socket'
 
 # @private
 module Sunscraper
@@ -104,26 +104,46 @@ module Sunscraper
       end
 
       def perform(query_id, request, data)
-        @out.write([query_id, request, data.length, data].pack("NNNa*"))
-        @out.flush
+        @socket.write([query_id, request, data.length, data].pack("NNNa*"))
       end
 
       private
 
       def work
-        executable = File.join(Gem.loaded_specs['sunscraper'].full_gem_path,
-                          'ext', 'standalone', "sunscraper#{RbConfig::CONFIG["EXEEXT"]}")
+        if ::Sunscraper.os_x?
+          # Fuck you, OS X.
+          suffix = ".app/Contents/MacOS/sunscraper"
+        else
+          suffix = RbConfig::CONFIG["EXEEXT"]
+        end
 
-        @out, @in = Open3.popen2(executable)
-        @in.read(1) # "ready" signal
+        executable = File.join(Gem.loaded_specs['sunscraper'].full_gem_path,
+                          'ext', 'standalone', "sunscraper#{suffix}")
+
+        server_path = "/tmp/sunscraper.#{Process.pid}.sock"
+        server = UNIXServer.new(server_path)
+
+        if Kernel.respond_to? :spawn
+          pid = Kernel.spawn "#{executable} #{server_path}"
+        else
+          # rbx does not have Kernel.spawn (yet). Sigh...
+          pid = fork { exec executable, server_path }
+        end
+
+        Process.detach pid
+
+        @socket = server.accept
+
+        server.close
+        FileUtils.rm server_path
 
         # See above.
         @creator.wakeup
 
         loop do
-          header = @in.read(4 * 3)
+          header = @socket.read(4 * 3)
           query_id, request, data_length = header.unpack("NNN")
-          data   = @in.read(data_length) if data_length > 0
+          data   = @socket.read(data_length) if data_length > 0
 
           @parent.rpc_mutex.synchronize do
             if !@parent.rpc_waiters.include?(query_id)
@@ -140,7 +160,8 @@ module Sunscraper
           $stderr.puts "  #{line}"
         end
       ensure
-        [@in, @out].each(&:close)
+        @socket.close
+        Process.kill pid
       end
     end
   end

@@ -1,4 +1,4 @@
-QT += webkit
+QT += webkit network
 
 TARGET = sunscraper
 TEMPLATE = app

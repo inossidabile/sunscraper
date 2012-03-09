@@ -6,7 +6,7 @@
 #include <QMap>
 
 class SunscraperWorker;
-class QSocketNotifier;
+class QLocalSocket;
 class QTimer;
 
 class SunscraperRPC : public QObject
@@ -33,16 +33,16 @@ class SunscraperRPC : public QObject
     };
 
 public:
-    SunscraperRPC();
+    SunscraperRPC(QString socketPath);
     ~SunscraperRPC();
 
 private slots:
-    void onStdinReadable();
+    void onInputReadable();
     void onPageRendered(unsigned queryId, QString data);
     void onTimeout();
 
 private:
-    QSocketNotifier *m_stdinNotifier;
+    QLocalSocket *m_socket;
 
     State  m_state;
     Header m_pendingHeader;
@@ -53,6 +53,8 @@ private:
     QList<unsigned> m_waitQueue;
     QMap<unsigned, QTimer*> m_timers;
     QMap<unsigned, QString> m_results;
+
+    SunscraperRPC();
 
     void processRequest(Header header, QByteArray data);
     void sendReply(Header header, QByteArray data);

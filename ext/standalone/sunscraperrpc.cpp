@@ -1,28 +1,22 @@
-#include <QFile>
-#include <QSocketNotifier>
+#include <QLocalSocket>
 #include <QTimer>
 #include <QDataStream>
 #include <QApplication>
 #include <QtDebug>
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
 #include <arpa/inet.h>
 #include "sunscraperrpc.h"
 #include "sunscraperworker.h"
 
-SunscraperRPC::SunscraperRPC() :
+SunscraperRPC::SunscraperRPC(QString socketPath) :
         m_state(StateHeader)
 {
-    fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
+    m_socket = new QLocalSocket(this);
+    m_socket->connectToServer(socketPath);
 
-    m_stdinNotifier = new QSocketNotifier(STDIN_FILENO, QSocketNotifier::Read);
-    connect(m_stdinNotifier, SIGNAL(activated(int)), this, SLOT(onStdinReadable()));
+    connect(m_socket, SIGNAL(readyRead()), this, SLOT(onInputReadable()));
 
-    m_worker = new SunscraperWorker();
+    m_worker = new SunscraperWorker(this);
     connect(m_worker, SIGNAL(finished(uint,QString)), this, SLOT(onPageRendered(uint,QString)));
-
-    write(STDOUT_FILENO, ".", 1);
 }
 
 SunscraperRPC::~SunscraperRPC()
@@ -30,26 +24,9 @@ SunscraperRPC::~SunscraperRPC()
     delete m_worker;
 }
 
-void SunscraperRPC::onStdinReadable()
+void SunscraperRPC::onInputReadable()
 {
-    char buf[1024];
-
-    m_stdinNotifier->setEnabled(false);
-
-    while(true) {
-        int result = read(STDIN_FILENO, buf, sizeof(buf));
-
-        if(result > 0) {
-            m_buffer += QByteArray(buf, result);
-        } else if(result == -1 && errno == EWOULDBLOCK) {
-            break;
-        } else if(result == 0) {
-            QApplication::exit(0);
-            return;
-        } else qFatal("Cannot read: %d, %d", result, errno);
-    }
-
-    m_stdinNotifier->setEnabled(true);
+    m_buffer += m_socket->readAll();
 
     bool moreData = true;
     while(moreData) {
@@ -196,5 +173,5 @@ void SunscraperRPC::sendReply(Header header, QByteArray data)
     QByteArray serialized((const char*) &header, sizeof(Header));
     serialized.append(data);
 
-    write(STDOUT_FILENO, serialized.constData(), serialized.length());
+    m_socket->write(serialized);
 }
