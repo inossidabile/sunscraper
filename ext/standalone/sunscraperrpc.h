@@ -38,6 +38,7 @@ public:
 
 private slots:
     void onInputReadable();
+    void onInputDisconnected();
     void onPageRendered(unsigned queryId, QString data);
     void onTimeout();
 

@@ -12,8 +12,8 @@ SunscraperRPC::SunscraperRPC(QString socketPath) :
 {
     m_socket = new QLocalSocket(this);
     m_socket->connectToServer(socketPath);
-
     connect(m_socket, SIGNAL(readyRead()), this, SLOT(onInputReadable()));
+    connect(m_socket, SIGNAL(disconnected()), this, SLOT(onInputDisconnected()));
 
     m_worker = new SunscraperWorker(this);
     connect(m_worker, SIGNAL(finished(uint,QString)), this, SLOT(onPageRendered(uint,QString)));
@@ -32,7 +32,7 @@ void SunscraperRPC::onInputReadable()
     while(moreData) {
         switch(m_state) {
         case StateHeader:
-            if(m_buffer.length() >= sizeof(Header)) {
+            if((unsigned) m_buffer.length() >= sizeof(Header)) {
                 memcpy((void*) &m_pendingHeader, m_buffer.constData(), sizeof(Header));
                 m_buffer.remove(0, sizeof(Header));
                 m_state = StateData;
@@ -45,7 +45,7 @@ void SunscraperRPC::onInputReadable()
         case StateData:
             unsigned length = ntohl(m_pendingHeader.dataLength);
 
-            if(m_buffer.length() >= length) {
+            if((unsigned) m_buffer.length() >= length) {
                 QByteArray data = m_buffer.left(length);
                 m_buffer.remove(0, length);
                 processRequest(m_pendingHeader, data);
@@ -57,6 +57,12 @@ void SunscraperRPC::onInputReadable()
             break;
         }
     }
+}
+
+void SunscraperRPC::onInputDisconnected()
+{
+    /* Magic value. */
+    QApplication::exit(42);
 }
 
 void SunscraperRPC::processRequest(Header header, QByteArray data)
