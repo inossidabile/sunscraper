@@ -79,7 +79,7 @@ if !(RUBY_ENGINE =~ /rbx/ || RUBY_ENGINE =~ /jruby/) ||
 
     it "can scrape an URL" do
       with_webserver do |port|
-        Sunscraper.scrape_url("http://localhost:#{port}/").should include('It works!')
+        Sunscraper.scrape_url("http://127.0.0.1:#{port}/").should include('It works!')
       end
     end
 
