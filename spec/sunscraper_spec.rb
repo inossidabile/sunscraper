@@ -63,10 +63,11 @@ unless Sunscraper.os_x?
   end
 end
 
-unless RUBY_ENGINE =~ /rbx/ ||
-      (RUBY_ENGINE =~ /jruby/ && JRUBY_VERSION.to_v < "1.7.0".to_v)
+if !(RUBY_ENGINE =~ /rbx/ || RUBY_ENGINE =~ /jruby/) ||
+   ENV['EXPERIMENTAL'] == 'true'
   # This part currently crashes Rubinius (as of Mar 09, 2012),
-  # and jruby < 1.7.0.
+  # and crashes jruby < 1.7.0, and uses Unix sockets which don't
+  # work even on jruby master (as of Mar 09, 2012).
   describe "Sunscraper::Standalone" do
     before do
       Sunscraper.worker = :standalone

@@ -1,3 +1,4 @@
+language: ruby
 install:
   - "sudo apt-get install qt4-dev-tools --no-install-recommends"
   - "cd ext/; ruby extconf.rb; make; cd ../;"
@@ -9,9 +10,20 @@ script:
   - "bundle exec rspec"
 rvm:
   - 1.9.2
-  - 1.9.3-p125
+  - 1.9.3
   - jruby-19mode
   - rbx-19mode
+env:
+  - EXPERIMENTAL=true
+  - EXPERIMENTAL=false
+matrix:
+  exclude:
+    - rvm: 1.9.2
+      env: EXPERIMENTAL=true
+    - rvm: 1.9.3
+      env: EXPERIMENTAL=true
+  allow_fail:
+    - env: EXPERIMENTAL=true
 notifications:
   email:
     - boris@roundlake.ru
