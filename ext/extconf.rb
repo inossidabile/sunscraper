@@ -11,12 +11,6 @@ end
 File.open("Makefile", "w") do |mf|
   mf.puts <<-ENDM
 all:
-	cd embed; #{qmake}
-	cd standalone; #{qmake}
-	make -C embed
-	make -C standalone
-
-install:
-	# do nothing
+	#{qmake}
   ENDM
 end
