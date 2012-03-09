@@ -1,5 +1,5 @@
 install:
-  - "sudo apt-get install qt4-dev-tools"
+  - "sudo apt-get install qt4-dev-tools --no-install-recommends"
   - "cd ext/; ruby extconf.rb; make; cd ../;"
   - "bundle install"
 before_script:

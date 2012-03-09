@@ -44,7 +44,7 @@ describe "Sunscraper::Library" do
 
   it "can scrape an URL" do
     with_webserver do |port|
-      Sunscraper.scrape_url("http://127.0.0.1:#{port}/", 15000).should include('It works!')
+      Sunscraper.scrape_url("http://127.0.0.1:#{port}/").should include('It works!')
     end
   end
 
@@ -65,7 +65,7 @@ describe "Sunscraper::Standalone" do
 
   it "can scrape an URL" do
     with_webserver do |port|
-      Sunscraper.scrape_url("http://localhost:#{port}/", 15000).should include('It works!')
+      Sunscraper.scrape_url("http://localhost:#{port}/").should include('It works!')
     end
   end
 
