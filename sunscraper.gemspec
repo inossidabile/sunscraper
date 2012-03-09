@@ -3,7 +3,7 @@ $:.push File.expand_path("../lib", __FILE__)
 
 Gem::Specification.new do |s|
   s.name        = "sunscraper"
-  s.version     = "1.0.0"
+  s.version     = "1.1.0-beta.1"
   s.authors     = ["Peter Zotov"]
   s.email       = ["whitequark@whitequark.org"]
   s.homepage    = "http://github.com/whitequark/sunscraper"

@@ -6,7 +6,7 @@ Sunscraper is a gem for prerendering pages with hashbang URLs like `http://whate
 It works by loading content in the embedded web browser and waiting for a JavaScript method to be
 called.
 
-```ruby
+``` ruby
 HTML = %{
 <html>
 <head>
@@ -44,7 +44,7 @@ C extension*; it works by building a Qt shared library and loading it through [F
 Runtime requirements
 --------------------
 
-On Linux with Qt versions <= 4.8, Sunscraper requires a running X server and a valid `DISPLAY` environment
+On Linux, Sunscraper requires a running X server and a valid `DISPLAY` environment
 variable. Consider using [Xvfb][] on a GUI-less production server.
 
   [Xvfb]: http://www.x.org/releases/X11R7.6/doc/man/man1/Xvfb.1.xhtml
