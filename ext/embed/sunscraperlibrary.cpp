@@ -1,7 +1,8 @@
 #include "sunscraperlibrary.h"
 #include "sunscraperthread.h"
+#include <QtDebug>
 
-SunscraperLibrary SunscraperLibrary::_instance;
+SunscraperLibrary SunscraperLibrary::m_instance;
 
 SunscraperLibrary::SunscraperLibrary()
 {
@@ -15,5 +16,5 @@ SunscraperLibrary::~SunscraperLibrary()
 
 SunscraperLibrary *SunscraperLibrary::instance()
 {
-    return &_instance;
+    return &m_instance;
 }

@@ -5,9 +5,9 @@
 #include <QString>
 #include <QMutex>
 #include <QByteArray>
-#include <QEventLoop>
 
 class QWebPage;
+class QEventLoop;
 
 class Sunscraper : public QObject
 {
@@ -26,20 +26,22 @@ public:
 
 private slots:
     void finished(unsigned queryId, QString html);
-    void timeout();
+    void timeout(unsigned queryId);
 
 signals:
     void requestLoadHtml(unsigned queryId, QString html);
     void requestLoadUrl(unsigned queryId, QString html);
+    void requestTimeout(unsigned queryId, unsigned timeout);
     void requestFinalize(unsigned queryId);
 
 private:
-    static unsigned _nextQueryId;
-    static QMutex _staticMutex;
+    static unsigned m_nextQueryId;
+    static QMutex m_staticMutex;
 
-    unsigned _queryId;
-    QEventLoop _eventLoop;
-    QByteArray _html;
+    QEventLoop *m_eventLoop;
+
+    unsigned m_queryId;
+    QByteArray m_html;
 };
 
 #endif // SUNSCRAPER_H

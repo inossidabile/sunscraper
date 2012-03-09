@@ -4,19 +4,20 @@
 #include <QWebPage>
 #include <QWebFrame>
 #include <QMutexLocker>
+#include <QEventLoop>
 #include <QtDebug>
 #include "sunscraper.h"
 #include "sunscraperlibrary.h"
 #include "sunscraperthread.h"
 
-unsigned Sunscraper::_nextQueryId = 1;
-QMutex Sunscraper::_staticMutex;
+unsigned Sunscraper::m_nextQueryId = 1;
+QMutex Sunscraper::m_staticMutex;
 
 Sunscraper::Sunscraper()
 {
-    QMutexLocker locker(&_staticMutex);
+    QMutexLocker locker(&m_staticMutex);
 
-    _queryId = _nextQueryId++;
+    m_queryId = m_nextQueryId++;
 
     SunscraperThread *worker = SunscraperThread::instance();
     if(worker == NULL)
@@ -28,61 +29,64 @@ Sunscraper::Sunscraper()
         worker, SLOT(loadUrl(uint,QString)), Qt::QueuedConnection);
     connect(this, SIGNAL(requestFinalize(uint)),
         worker, SLOT(finalize(uint)), Qt::QueuedConnection);
+    connect(this, SIGNAL(requestTimeout(uint,uint)),
+        worker, SLOT(setTimeout(uint, uint)), Qt::QueuedConnection);
 
     connect(worker, SIGNAL(finished(uint,QString)),
         this, SLOT(finished(uint,QString)), Qt::QueuedConnection);
+    connect(worker, SIGNAL(timeout(uint)),
+        this, SLOT(timeout(uint)), Qt::QueuedConnection);
+
+    m_eventLoop = new QEventLoop;
 }
 
 void Sunscraper::loadHtml(QString html)
 {
-    emit requestLoadHtml(_queryId, html);
+    emit requestLoadHtml(m_queryId, html);
 }
 
 void Sunscraper::loadUrl(QString url)
 {
-    emit requestLoadUrl(_queryId, url);
+    emit requestLoadUrl(m_queryId, url);
 }
 
 void Sunscraper::wait(unsigned timeout)
 {
-    QTimer _timeoutTimer;
-    connect(&_timeoutTimer, SIGNAL(timeout()), this, SLOT(timeout()));
+    emit requestTimeout(m_queryId, timeout);
 
-    _timeoutTimer.setInterval(timeout);
-    _timeoutTimer.start();
-
-    _eventLoop.exec();
-
-    _timeoutTimer.stop();
+    m_eventLoop->exec();
 }
 
 void Sunscraper::finished(unsigned eventQueryId, QString html)
 {
-    if(eventQueryId != _queryId)
+    if(eventQueryId != m_queryId)
         return;
 
-    _eventLoop.quit();
+    m_eventLoop->quit();
 
-    _html = html.toUtf8();
+    m_html = html.toUtf8();
 
-    emit requestFinalize(_queryId);
+    emit requestFinalize(m_queryId);
 }
 
-void Sunscraper::timeout()
+void Sunscraper::timeout(unsigned eventQueryId)
 {
-    _eventLoop.quit();
+    if(eventQueryId != m_queryId)
+        return;
 
-    _html = "!SUNSCRAPER_TIMEOUT";
+    m_eventLoop->quit();
 
-    emit requestFinalize(_queryId);
+    m_html = "!SUNSCRAPER_TIMEOUT";
+
+    emit requestFinalize(m_queryId);
 }
 
 QByteArray Sunscraper::fetch()
 {
-    return _html;
+    return m_html;
 }
 
 const char *Sunscraper::fetchAsCString()
 {
-    return _html.constData();
+    return m_html.constData();
 }

@@ -1,12 +1,18 @@
 #include <QApplication>
 #include <QWebPage>
 #include <QWebFrame>
+#include <QTimer>
 #include "sunscraperthread.h"
 #include "sunscraperproxy.h"
 #include <QtDebug>
+#include <time.h>
 
-SunscraperThread *SunscraperThread::_instance;
-QMutex *SunscraperThread::_initializationLock;
+#if defined(Q_OS_LINUX) || defined(Q_OS_UNIX)
+pthread_t SunscraperThread::m_thread;
+#endif
+
+SunscraperThread *SunscraperThread::m_instance;
+QSemaphore SunscraperThread::m_initializationLock;
 
 SunscraperThread::SunscraperThread()
 {
@@ -14,23 +20,16 @@ SunscraperThread::SunscraperThread()
 
 SunscraperThread *SunscraperThread::instance()
 {
-    _initializationLock->lock();
-    _initializationLock->unlock();
+    m_initializationLock.acquire(1);
+    m_initializationLock.release(1);
 
-    return _instance;
+    return m_instance;
 }
 
 void SunscraperThread::invoke()
 {
-    _initializationLock = new QMutex;
-    _initializationLock->lock();
-
 #if defined(Q_OS_LINUX) || defined(Q_OS_UNIX)
-    pthread_t thread;
-
-    pthread_create(&thread, NULL, &SunscraperThread::thread_routine, NULL);
-#else
-#error Your platform is unsupported. Implement SunscraperThread::invoke() and send a pull request.
+    pthread_create(&m_thread, NULL, &SunscraperThread::thread_routine, NULL);
 #endif
 }
 
@@ -43,19 +42,33 @@ void *SunscraperThread::thread_routine(void *)
     /* Why (char*)? Because argv can (theoretically) be modified. *
      * But Qt won't do that with argv[0]. I know, trust me.       */
 
+    //qDebug() << "a";
+    //usleep(1000000);
+    //qDebug() << "b";
+
     QApplication app(argc, argv);
 
-    if(_instance != NULL)
+    if(m_instance != NULL)
         qFatal("Attempt to invoke SunscraperThread more than once");
 
-    _instance = new SunscraperThread();
-    _initializationLock->unlock();
+    m_instance = new SunscraperThread();
+    m_initializationLock.release(1);
 
-    app.exec();
+    /* The magic value 42 means we want exit from the loop. */
+    while(app.exec() != 42);
 
-    qFatal("Sunscraper apartment thread event loop should never end");
+    /* Our application exits. */
 
     return NULL;
+}
+
+void SunscraperThread::commitSuicide()
+{
+    QApplication::exit(42);
+
+#if defined(Q_OS_LINUX) || defined(Q_OS_UNIX)
+    pthread_join(m_thread, NULL);
+#endif
 }
 
 void SunscraperThread::loadHtml(unsigned queryId, QString html)
@@ -70,23 +83,42 @@ void SunscraperThread::loadUrl(unsigned queryId, QString url)
     webPage->mainFrame()->load(url);
 }
 
+void SunscraperThread::setTimeout(unsigned queryId, unsigned timeout)
+{
+    Q_ASSERT(m_timers[queryId] == NULL);
+
+    QTimer *timer = new QTimer(this);
+    timer->setInterval(timeout);
+    timer->setSingleShot(true);
+
+    connect(timer, SIGNAL(timeout()), this, SLOT(routeTimeout()));
+
+    timer->start();
+    m_timers[queryId] = timer;
+}
+
 void SunscraperThread::finalize(unsigned queryId)
 {
-    Q_ASSERT(_webPages[queryId] != NULL);
+    Q_ASSERT(m_webPages[queryId] != NULL);
 
-    _webPages[queryId]->deleteLater();
-    _webPages.remove(queryId);
+    m_webPages[queryId]->deleteLater();
+    m_webPages.remove(queryId);
+
+    if(m_timers.contains(queryId)) {
+        m_timers[queryId]->deleteLater();
+        m_timers.remove(queryId);
+    }
 }
 
 QWebPage *SunscraperThread::initializeWebPage(unsigned queryId)
 {
-    Q_ASSERT(_webPages[queryId] == NULL);
+    Q_ASSERT(m_webPages[queryId] == NULL);
 
     QWebPage *webPage = new QWebPage(this);
     connect(webPage->mainFrame(), SIGNAL(javaScriptWindowObjectCleared()),
         this, SLOT(attachAPI()));
 
-    _webPages[queryId] = webPage;
+    m_webPages[queryId] = webPage;
 
     return webPage;
 }
@@ -96,11 +128,21 @@ void SunscraperThread::attachAPI()
     QWebFrame *origin = static_cast<QWebFrame *>(QObject::sender());
     QWebPage *page = origin->page();
 
-    unsigned queryId = _webPages.key(page, 0);
+    unsigned queryId = m_webPages.key(page, 0);
     Q_ASSERT(queryId != 0);
 
     SunscraperProxy *proxy = new SunscraperProxy(page, queryId);
     connect(proxy, SIGNAL(finished(uint,QString)), this, SIGNAL(finished(uint,QString)));
 
     origin->addToJavaScriptWindowObject("Sunscraper", proxy, QScriptEngine::QtOwnership);
+}
+
+void SunscraperThread::routeTimeout()
+{
+    QTimer *origin = static_cast<QTimer *>(QObject::sender());
+
+    unsigned queryId = m_timers.key(origin, 0);
+    Q_ASSERT(queryId != 0);
+
+    emit timeout(queryId);
 }

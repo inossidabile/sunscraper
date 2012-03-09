@@ -12,7 +12,7 @@ private:
     SunscraperLibrary(SunscraperLibrary &);
     ~SunscraperLibrary();
 
-    static SunscraperLibrary _instance;
+    static SunscraperLibrary m_instance;
 };
 
 #endif // SUNSCRAPER_H

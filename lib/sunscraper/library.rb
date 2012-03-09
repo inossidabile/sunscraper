@@ -33,5 +33,9 @@ module Sunscraper
       # Same for JRuby.
       attach_function 'wait',    :sunscraper_wait,      [:pointer, :uint],   :void
     end
+
+    attach_function 'finalize',  :sunscraper_finalize,  [],                  :void
+
+    at_exit { finalize }
   end
 end
