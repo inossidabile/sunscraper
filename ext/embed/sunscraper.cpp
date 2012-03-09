@@ -8,7 +8,7 @@
 #include <QtDebug>
 #include "sunscraper.h"
 #include "sunscraperlibrary.h"
-#include "sunscraperthread.h"
+#include "sunscraperworker.h"
 
 unsigned Sunscraper::m_nextQueryId = 1;
 QMutex Sunscraper::m_staticMutex;
@@ -19,7 +19,7 @@ Sunscraper::Sunscraper()
 
     m_queryId = m_nextQueryId++;
 
-    SunscraperThread *worker = SunscraperThread::instance();
+    SunscraperWorker *worker = SunscraperWorker::instance();
     if(worker == NULL)
         qFatal("Attempt to run Sunscraper before thread initialization");
 

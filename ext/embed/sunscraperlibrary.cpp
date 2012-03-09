@@ -1,12 +1,12 @@
 #include "sunscraperlibrary.h"
-#include "sunscraperthread.h"
+#include "sunscraperworker.h"
 #include <QtDebug>
 
 SunscraperLibrary SunscraperLibrary::m_instance;
 
 SunscraperLibrary::SunscraperLibrary()
 {
-    SunscraperThread::invoke();
+    SunscraperWorker::invoke();
 }
 
 SunscraperLibrary::~SunscraperLibrary()

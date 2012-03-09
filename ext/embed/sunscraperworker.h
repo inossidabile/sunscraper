@@ -1,20 +1,22 @@
-#ifndef SUNSCRAPERTHREAD_H
-#define SUNSCRAPERTHREAD_H
+#ifndef SUNSCRAPERWORKER_H
+#define SUNSCRAPERWORKER_H
 
 #include <QObject>
 #include <QSemaphore>
 #include <QMap>
+#include <QUrl>
 
 class QWebPage;
+class QWebFrame;
 class QTimer;
 
-class SunscraperThread : public QObject
+class SunscraperWorker : public QObject
 {
     Q_OBJECT
 public:
     static void invoke();
     static void commitSuicide();
-    static SunscraperThread *instance();
+    static SunscraperWorker *instance();
 
 signals:
     void finished(unsigned queryId, QString result);
@@ -27,17 +29,19 @@ public slots:
     void finalize(unsigned queryId);
 
 private slots:
+    void attachFrame(QWebFrame *frame);
     void attachAPI();
     void routeTimeout();
+    void routeMessage(QString message);
 
 private:
-    static SunscraperThread *m_instance;
+    static SunscraperWorker *m_instance;
     static QSemaphore m_initializationLock;
 
 #if defined(Q_OS_LINUX) || defined(Q_OS_UNIX)
     static pthread_t m_thread;
 #else
-#error Your platform is unsupported. Implement SunscraperThread::invoke() and send a pull request.
+#error Your platform is unsupported. Implement SunscraperWorker::invoke() and send a pull request.
 #endif
 
     static void *thread_routine(void *arg);
@@ -45,10 +49,10 @@ private:
     QMap<unsigned, QWebPage *> m_webPages;
     QMap<unsigned, QTimer *> m_timers;
 
-    SunscraperThread();
-    SunscraperThread(SunscraperThread &);
+    SunscraperWorker();
+    SunscraperWorker(SunscraperWorker &);
 
     QWebPage *initializeWebPage(unsigned queryId);
 };
 
-#endif // SUNSCRAPERTHREAD_H
+#endif // SUNSCRAPERWORKER_H

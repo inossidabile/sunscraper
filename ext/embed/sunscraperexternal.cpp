@@ -1,5 +1,5 @@
 #include "sunscraper.h"
-#include "sunscraperthread.h"
+#include "sunscraperworker.h"
 
 extern "C" {
     Sunscraper *sunscraper_create()
@@ -34,6 +34,6 @@ extern "C" {
 
     void sunscraper_finalize()
     {
-        SunscraperThread::commitSuicide();
+        SunscraperWorker::commitSuicide();
     }
 }

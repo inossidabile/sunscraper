@@ -1,7 +1,7 @@
 #ifndef SUNSCRAPERLIBRARY_H
 #define SUNSCRAPERLIBRARY_H
 
-class SunscraperThread;
+class SunscraperWorker;
 
 class SunscraperLibrary {
 public:

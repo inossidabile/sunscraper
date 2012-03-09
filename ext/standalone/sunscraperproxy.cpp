@@ -1,5 +1,6 @@
 #include <QWebPage>
 #include <QWebFrame>
+#include <QtDebug>
 #include "sunscraperproxy.h"
 
 SunscraperProxy::SunscraperProxy(QWebPage *parent, unsigned queryId) :

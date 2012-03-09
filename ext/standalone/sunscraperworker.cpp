@@ -35,6 +35,8 @@ QWebPage *SunscraperWorker::initializeWebPage(unsigned queryId)
     Q_ASSERT(_webPages[queryId] == NULL);
 
     QWebPage *webPage = new QWebPage(this);
+    webPage->settings()->setAttribute(QWebSettings::LocalStorageEnabled, true);
+
     connect(webPage->mainFrame(), SIGNAL(javaScriptWindowObjectCleared()),
         this, SLOT(attachAPI()));
 

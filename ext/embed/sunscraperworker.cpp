@@ -2,23 +2,25 @@
 #include <QWebPage>
 #include <QWebFrame>
 #include <QTimer>
-#include "sunscraperthread.h"
+#include <QWebView>
+#include "sunscraperworker.h"
+#include "sunscraperwebpage.h"
 #include "sunscraperproxy.h"
 #include <QtDebug>
 #include <time.h>
 
 #if defined(Q_OS_LINUX) || defined(Q_OS_UNIX)
-pthread_t SunscraperThread::m_thread;
+pthread_t SunscraperWorker::m_thread;
 #endif
 
-SunscraperThread *SunscraperThread::m_instance;
-QSemaphore SunscraperThread::m_initializationLock;
+SunscraperWorker *SunscraperWorker::m_instance;
+QSemaphore SunscraperWorker::m_initializationLock;
 
-SunscraperThread::SunscraperThread()
+SunscraperWorker::SunscraperWorker()
 {
 }
 
-SunscraperThread *SunscraperThread::instance()
+SunscraperWorker *SunscraperWorker::instance()
 {
     m_initializationLock.acquire(1);
     m_initializationLock.release(1);
@@ -26,14 +28,14 @@ SunscraperThread *SunscraperThread::instance()
     return m_instance;
 }
 
-void SunscraperThread::invoke()
+void SunscraperWorker::invoke()
 {
 #if defined(Q_OS_LINUX) || defined(Q_OS_UNIX)
-    pthread_create(&m_thread, NULL, &SunscraperThread::thread_routine, NULL);
+    pthread_create(&m_thread, NULL, &SunscraperWorker::thread_routine, NULL);
 #endif
 }
 
-void *SunscraperThread::thread_routine(void *)
+void *SunscraperWorker::thread_routine(void *)
 {
     /* Better error messages. */
     int   argc   = 1;
@@ -49,9 +51,9 @@ void *SunscraperThread::thread_routine(void *)
     QApplication app(argc, argv);
 
     if(m_instance != NULL)
-        qFatal("Attempt to invoke SunscraperThread more than once");
+        qFatal("Attempt to invoke SunscraperWorker more than once");
 
-    m_instance = new SunscraperThread();
+    m_instance = new SunscraperWorker();
     m_initializationLock.release(1);
 
     /* The magic value 42 means we want exit from the loop. */
@@ -62,7 +64,7 @@ void *SunscraperThread::thread_routine(void *)
     return NULL;
 }
 
-void SunscraperThread::commitSuicide()
+void SunscraperWorker::commitSuicide()
 {
     QApplication::exit(42);
 
@@ -71,19 +73,19 @@ void SunscraperThread::commitSuicide()
 #endif
 }
 
-void SunscraperThread::loadHtml(unsigned queryId, QString html)
+void SunscraperWorker::loadHtml(unsigned queryId, QString html)
 {
     QWebPage *webPage = initializeWebPage(queryId);
     webPage->mainFrame()->setHtml(html);
 }
 
-void SunscraperThread::loadUrl(unsigned queryId, QString url)
+void SunscraperWorker::loadUrl(unsigned queryId, QString url)
 {
     QWebPage *webPage = initializeWebPage(queryId);
     webPage->mainFrame()->load(url);
 }
 
-void SunscraperThread::setTimeout(unsigned queryId, unsigned timeout)
+void SunscraperWorker::setTimeout(unsigned queryId, unsigned timeout)
 {
     Q_ASSERT(m_timers[queryId] == NULL);
 
@@ -97,7 +99,7 @@ void SunscraperThread::setTimeout(unsigned queryId, unsigned timeout)
     m_timers[queryId] = timer;
 }
 
-void SunscraperThread::finalize(unsigned queryId)
+void SunscraperWorker::finalize(unsigned queryId)
 {
     Q_ASSERT(m_webPages[queryId] != NULL);
 
@@ -110,20 +112,28 @@ void SunscraperThread::finalize(unsigned queryId)
     }
 }
 
-QWebPage *SunscraperThread::initializeWebPage(unsigned queryId)
+QWebPage *SunscraperWorker::initializeWebPage(unsigned queryId)
 {
     Q_ASSERT(m_webPages[queryId] == NULL);
 
-    QWebPage *webPage = new QWebPage(this);
-    connect(webPage->mainFrame(), SIGNAL(javaScriptWindowObjectCleared()),
-        this, SLOT(attachAPI()));
+    SunscraperWebPage *webPage = new SunscraperWebPage(this);
+    webPage->settings()->setAttribute(QWebSettings::LocalStorageEnabled, true);
+
+    connect(webPage, SIGNAL(frameCreated(QWebFrame*)), this, SLOT(attachFrame(QWebFrame*)));
+    connect(webPage, SIGNAL(consoleMessage(QString)), this, SLOT(routeMessage(QString)));
 
     m_webPages[queryId] = webPage;
 
     return webPage;
 }
 
-void SunscraperThread::attachAPI()
+void SunscraperWorker::attachFrame(QWebFrame *frame)
+{
+    connect(frame, SIGNAL(javaScriptWindowObjectCleared()),
+        this, SLOT(attachAPI()));
+}
+
+void SunscraperWorker::attachAPI()
 {
     QWebFrame *origin = static_cast<QWebFrame *>(QObject::sender());
     QWebPage *page = origin->page();
@@ -137,7 +147,7 @@ void SunscraperThread::attachAPI()
     origin->addToJavaScriptWindowObject("Sunscraper", proxy, QScriptEngine::QtOwnership);
 }
 
-void SunscraperThread::routeTimeout()
+void SunscraperWorker::routeTimeout()
 {
     QTimer *origin = static_cast<QTimer *>(QObject::sender());
 
@@ -145,4 +155,9 @@ void SunscraperThread::routeTimeout()
     Q_ASSERT(queryId != 0);
 
     emit timeout(queryId);
+}
+
+void SunscraperWorker::routeMessage(QString message)
+{
+    qDebug() << "Sunscraper Console:" << message;
 }
