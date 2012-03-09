@@ -9,7 +9,6 @@ script:
   - "bundle exec rspec"
 rvm:
   - 1.9.2
-  - 1.9.3-p0
   - 1.9.3-p125
   - jruby-19mode
   - rbx-19mode
