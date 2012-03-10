@@ -1,5 +1,7 @@
 # This Makefile will get replaced by qmake.
 
+require 'rbconfig'
+
 if RUBY_PLATFORM =~ /darwin/i || RbConfig::CONFIG['target_os'] == 'darwin'
   # Cannot you OS X have a build system like all sane people?
   # Win32 wins again.
