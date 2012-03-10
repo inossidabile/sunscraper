@@ -1,5 +1,5 @@
-if !defined?(RUBY_ENGINE) && RUBY_VERSION =~ /^1.8/
-  raise RuntimeError, "Sunscraper does not work on Ruby MRI 1.8.x."
+if RUBY_VERSION =~ /^1.8/
+  raise RuntimeError, "Sunscraper does not work on Ruby 1.8."
 end
 
 # Sunscraper loads an HTML page in a headless browser and waits for `Sunscraper.finish()`

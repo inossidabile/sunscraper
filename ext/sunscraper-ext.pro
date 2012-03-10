@@ -1,2 +1,2 @@
 TEMPLATE = subdirs
-SUBDIRS  = common embed
+SUBDIRS  = common embed standalone

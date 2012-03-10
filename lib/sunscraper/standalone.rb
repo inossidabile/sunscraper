@@ -10,11 +10,11 @@ module Sunscraper
     @rpc_results  = {}
     @rpc_thread   = nil
 
-    RPC_LOAD_HTML = 1
-    RPC_LOAD_URL  = 2
+    RPC_LOAD_URL  = 1
+    RPC_LOAD_HTML = 2
     RPC_WAIT      = 3
     RPC_FETCH     = 4
-    RPC_DISCARD   = 5
+    RPC_FINALIZE  = 5
 
     class << self
       attr_reader :rpc_mutex, :rpc_waiters, :rpc_results
@@ -43,23 +43,27 @@ module Sunscraper
         end
       end
 
-      def load_html(query_id, html)
-        perform_rpc query_id,
-          request:     RPC_LOAD_HTML,
-          data:        html
-      end
-
       def load_url(query_id, url)
         perform_rpc query_id,
           request:     RPC_LOAD_URL,
           data:        url
       end
 
-      def wait(query_id, timeout)
+      def load_html(query_id, html, baseUrl)
+        html, baseUrl = [html, baseUrl].map(&:to_s)
         perform_rpc query_id,
+          request:     RPC_LOAD_HTML,
+          data:        [html.length, html, baseUrl.length, baseUrl].pack("Na*Na*")
+      end
+
+      def wait(query_id, timeout)
+        result = perform_rpc query_id,
           request:     RPC_WAIT,
           data:        [timeout].pack("N"),
           want_result: true
+        code, = result.unpack("N")
+
+        code == 1 # true
       end
 
       def fetch(query_id)
@@ -68,9 +72,9 @@ module Sunscraper
           want_result: true
       end
 
-      def discard(query_id)
+      def finalize(query_id)
         perform_rpc query_id,
-          request:     RPC_DISCARD
+          request:     RPC_FINALIZE
       end
 
       private

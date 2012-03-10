@@ -16,7 +16,9 @@ SunscraperRPC::SunscraperRPC(QString socketPath) :
     connect(m_socket, SIGNAL(disconnected()), this, SLOT(onInputDisconnected()));
 
     m_worker = new SunscraperWorker(this);
-    connect(m_worker, SIGNAL(finished(uint,QString)), this, SLOT(onPageRendered(uint,QString)));
+    connect(m_worker, SIGNAL(finished(uint)), this, SLOT(onFinish(uint)));
+    connect(m_worker, SIGNAL(timedOut(uint)), this, SLOT(onTimeout(uint)));
+    connect(m_worker, SIGNAL(htmlFetched(uint,QString)), this, SLOT(onFetchDone(uint,QString)));
 }
 
 SunscraperRPC::~SunscraperRPC()
@@ -48,7 +50,14 @@ void SunscraperRPC::onInputReadable()
             if((unsigned) m_buffer.length() >= length) {
                 QByteArray data = m_buffer.left(length);
                 m_buffer.remove(0, length);
-                processRequest(m_pendingHeader, data);
+
+                unsigned queryId, requestType;
+
+                queryId     = ntohl(m_pendingHeader.queryId);
+                requestType = ntohl(m_pendingHeader.requestType);
+
+                processRequest(queryId, requestType, data);
+
                 m_state = StateHeader;
             } else {
                 moreData = false;
@@ -61,84 +70,55 @@ void SunscraperRPC::onInputReadable()
 
 void SunscraperRPC::onInputDisconnected()
 {
-    /* Magic value. */
-    QApplication::exit(42);
+    QApplication::exit();
 }
 
-void SunscraperRPC::processRequest(Header header, QByteArray data)
+void SunscraperRPC::processRequest(unsigned queryId, unsigned requestType, QByteArray data)
 {
-    unsigned queryId, requestType;
-
-    queryId     = ntohl(header.queryId);
-    requestType = ntohl(header.requestType);
-
     switch(requestType) {
     case RPC_LOAD_HTML: {
-            m_worker->loadHtml(queryId, data);
+            QDataStream stream(data);
+
+            QByteArray html;
+            stream >> html;
+
+            QByteArray baseUrl;
+            stream >> baseUrl;
+
+            m_worker->loadHtml(queryId, html, QUrl(baseUrl));
 
             break;
         }
 
     case RPC_LOAD_URL: {
-            m_worker->loadUrl(queryId, data);
+            m_worker->loadUrl(queryId, QUrl(data));
 
             break;
         }
 
     case RPC_WAIT: {
-            if(m_results.contains(queryId)) {
-                Header reply;
-                reply.queryId     = htonl(queryId);
-                reply.requestType = htonl(RPC_WAIT);
-
-                sendReply(reply, QByteArray());
+            if(m_results[queryId]) {
+                onFinish(queryId);
             } else {
-                Q_ASSERT(!m_waitQueue.contains(queryId));
-                Q_ASSERT(!m_timers.contains(queryId));
-
-                m_waitQueue.append(queryId);
+                QDataStream stream(data);
 
                 unsigned timeout;
-
-                QDataStream stream(data);
                 stream >> timeout;
 
-                QTimer *timer = new QTimer(this);
-                timer->setInterval(timeout);
-                timer->setSingleShot(true);
-                timer->start();
-                connect(timer, SIGNAL(timeout()), this, SLOT(onTimeout()));
-
-                m_timers[queryId] = timer;
+                m_worker->setTimeout(queryId, timeout);
             }
 
             break;
         }
 
     case RPC_FETCH: {
-            Header reply;
-            reply.queryId     = htonl(queryId);
-            reply.requestType = htonl(RPC_FETCH);
-
-            if(m_results.contains(queryId)) {
-                sendReply(reply, m_results[queryId].toLocal8Bit());
-            } else {
-                sendReply(reply, "!SUNSCRAPER_TIMEOUT");
-            }
+            m_worker->fetchHtml(queryId);
 
             break;
         }
 
-    case RPC_DISCARD: {
+    case RPC_FINALIZE: {
             m_results.remove(queryId);
-            m_waitQueue.removeAll(queryId);
-
-            if(m_timers.contains(queryId)) {
-                QTimer *timer = m_timers[queryId];
-                delete timer;
-
-                m_timers.remove(queryId);
-            }
 
             m_worker->finalize(queryId);
 
@@ -147,34 +127,42 @@ void SunscraperRPC::processRequest(Header header, QByteArray data)
     }
 }
 
-void SunscraperRPC::onPageRendered(unsigned queryId, QString data)
+void SunscraperRPC::onFinish(unsigned queryId)
 {
-    m_results[queryId] = data;
+    QByteArray data;
+    QDataStream stream(&data, QIODevice::WriteOnly);
 
-    if(m_waitQueue.contains(queryId)) {
-        Header reply;
-        reply.queryId     = htonl(queryId);
-        reply.requestType = htonl(RPC_WAIT);
+    stream << (int) true;
 
-        sendReply(reply, QByteArray());
-    }
+    sendReply(queryId, RPC_WAIT, data);
+
+    m_results[queryId] = true;
 }
 
-void SunscraperRPC::onTimeout()
+void SunscraperRPC::onTimeout(unsigned queryId)
 {
-    QTimer *timer = static_cast<QTimer*>(QObject::sender());
-    unsigned queryId = m_timers.key(timer);
+    QByteArray data;
+    QDataStream stream(&data, QIODevice::WriteOnly);
 
-    Header reply;
-    reply.queryId     = htonl(queryId);
-    reply.requestType = htonl(RPC_WAIT);
+    stream << (int) false;
 
-    sendReply(reply, QByteArray());
+    sendReply(queryId, RPC_WAIT, data);
+
+    m_results[queryId] = true;
 }
 
-void SunscraperRPC::sendReply(Header header, QByteArray data)
+void SunscraperRPC::onFetchDone(unsigned queryId, QString data)
 {
-    header.dataLength = htonl(data.length());
+    sendReply(queryId, RPC_FETCH, data.toLocal8Bit());
+}
+
+void SunscraperRPC::sendReply(unsigned queryId, unsigned requestType, QByteArray data)
+{
+    Header header;
+
+    header.queryId     = ntohl(queryId);
+    header.requestType = ntohl(requestType);
+    header.dataLength  = htonl(data.length());
 
     QByteArray serialized((const char*) &header, sizeof(Header));
     serialized.append(data);

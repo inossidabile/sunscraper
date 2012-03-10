@@ -7,7 +7,6 @@
 
 class SunscraperWorker;
 class QLocalSocket;
-class QTimer;
 
 class SunscraperRPC : public QObject
 {
@@ -24,12 +23,17 @@ class SunscraperRPC : public QObject
         quint32 dataLength;
     };
 
+    struct LoadUrlRequest {
+        quint32 htmlLength;
+        quint32 baseUrlLength;
+    };
+
     enum Request {
-        RPC_LOAD_HTML = 1,
-        RPC_LOAD_URL  = 2,
+        RPC_LOAD_URL  = 1,
+        RPC_LOAD_HTML = 2,
         RPC_WAIT      = 3,
         RPC_FETCH     = 4,
-        RPC_DISCARD   = 5,
+        RPC_FINALIZE  = 5,
     };
 
 public:
@@ -39,8 +43,10 @@ public:
 private slots:
     void onInputReadable();
     void onInputDisconnected();
-    void onPageRendered(unsigned queryId, QString data);
-    void onTimeout();
+
+    void onFinish(unsigned queryId);
+    void onTimeout(unsigned queryId);
+    void onFetchDone(unsigned queryId, QString data);
 
 private:
     QLocalSocket *m_socket;
@@ -51,14 +57,12 @@ private:
 
     SunscraperWorker *m_worker;
 
-    QList<unsigned> m_waitQueue;
-    QMap<unsigned, QTimer*> m_timers;
-    QMap<unsigned, QString> m_results;
+    QMap<unsigned, bool> m_results;
 
     SunscraperRPC();
 
-    void processRequest(Header header, QByteArray data);
-    void sendReply(Header header, QByteArray data);
+    void processRequest(unsigned queryId, unsigned requestType, QByteArray data);
+    void sendReply(unsigned queryId, unsigned requestType, QByteArray data);
 };
 
 #endif // SUNSCRAPERRPC_H

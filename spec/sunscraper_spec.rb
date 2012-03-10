@@ -144,5 +144,5 @@ if !(RUBY_ENGINE =~ /rbx/ || RUBY_ENGINE =~ /jruby/) ||
   # This part currently crashes Rubinius (as of Mar 09, 2012),
   # and crashes jruby < 1.7.0, and uses Unix sockets which don't
   # work even on jruby master (as of Mar 09, 2012).
-  #define_tests.("Sunscraper-Standalone", :standalone)
+  define_tests.("Sunscraper-Standalone", :standalone)
 end
