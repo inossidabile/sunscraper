@@ -1,17 +1,31 @@
 # This Makefile will get replaced by qmake.
 
-if Gem.win_platform?
-  qmake = %{qmake -spec win32-g++}
-elsif RUBY_PLATFORM =~ /darwin/i || RbConfig::CONFIG['target_os'] == 'darwin'
+if RUBY_PLATFORM =~ /darwin/i || RbConfig::CONFIG['target_os'] == 'darwin'
+  # Cannot you OS X have a build system like all sane people?
+  # Win32 wins again.
   qmake = %{qmake -spec macx-g++}
-else
-  qmake = %{qmake}
-end
 
-File.open("Makefile", "w") do |mf|
-  mf.puts <<-ENDM
+  File.open("Makefile", "w") do |mf|
+    mf.puts <<-ENDM
+all:
+	(cd embed && #{qmake}; make)
+	(cd standalone && #{qmake}; make)
+install:
+	# do nothing
+    ENDM
+  end
+else
+  if Gem.win_platform?
+    qmake = %{qmake -spec win32-g++}
+  else
+    qmake = %{qmake}
+  end
+
+  File.open("Makefile", "w") do |mf|
+    mf.puts <<-ENDM
 all:
 	#{qmake}
 	make
-  ENDM
+    ENDM
+  end
 end
