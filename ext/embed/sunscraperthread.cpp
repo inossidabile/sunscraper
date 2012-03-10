@@ -1,4 +1,5 @@
 #include <QApplication>
+#include <qnamespace.h>
 #include <QtDebug>
 #include "sunscraperthread.h"
 #include "sunscraperworker.h"
@@ -25,7 +26,7 @@ void *SunscraperThread::thread_routine(void *)
     /* Why (char*)? Because argv can (theoretically) be modified. *
      * But Qt won't do that with argv[0]. I know, trust me.       */
 
-    qt_set_current_thread_to_main_thread();
+    QInternal::callFunction(QInternal::SetCurrentThreadToMainThread, NULL);
 
     QApplication app(argc, argv);
     app.setApplicationName("Sunscraper-Embed");
