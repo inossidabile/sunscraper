@@ -119,6 +119,6 @@ void SunscraperWorker::onMessage(QString message)
     qDebug() << "Sunscraper Console:" << message;
 }
 
-QString SunscraperWorker::fetchHtml(unsigned queryId) const {
-    return m_webPages[queryId]->mainFrame()->toHtml();
+void SunscraperWorker::fetchHtml(unsigned queryId) {
+    emit htmlFetched(queryId, m_webPages[queryId]->mainFrame()->toHtml());
 }

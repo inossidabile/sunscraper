@@ -47,16 +47,26 @@ HTML_LOCALSTORAGE = HTML_TEMPLATE.sub("%code%", <<CODE)
     Sunscraper.finish();
 CODE
 
-def with_webserver(html, port=32768 + rand(10000))
-  server = WEBrick::HTTPServer.new :Port => port, :Logger => WEBrick::Log.new('/dev/null'), :AccessLog => []
-  server.mount_proc '/' do |req, res|
-    res.body = html
-  end
-  Thread.new { server.start }
+def with_webserver(html)
+  port = 45555
+  pid = fork {
+    server = WEBrick::HTTPServer.new :Port => port, :Logger => WEBrick::Log.new('/dev/null'), :AccessLog => []
+    server.mount_proc '/' do |req, res|
+      res.body = html
+    end
+    server.mount_proc '/comicstrip' do |req, res|
+      res.body = 'Go Get a Roomie!'
+    end
+    server.start
+    exit!
+  }
 
-  yield "http://127.0.0.1:#{port}/", server
+  yield "http://127.0.0.1:#{port}/"
 ensure
-  server.shutdown if server
+  if pid
+    Process.kill "KILL", pid
+    Process.wait
+  end
 end
 
 define_tests = lambda do |klass, worker|
@@ -81,11 +91,7 @@ define_tests = lambda do |klass, worker|
     end
 
     it "respects baseUrl parameter" do
-      with_webserver("<!-- nothing -->") do |url, server|
-        server.mount_proc '/comicstrip' do |req, res|
-          res.body = 'Go Get a Roomie!'
-        end
-
+      with_webserver("<!-- nothing -->") do |url|
         Sunscraper.scrape_html(HTML_BASEURL, url).should include('Go Get a Roomie')
       end
     end
@@ -97,6 +103,32 @@ define_tests = lambda do |klass, worker|
     it "should work with window.localStorage through webserver" do
       with_webserver(HTML_LOCALSTORAGE) do |url|
         Sunscraper.scrape_url(url).should include("OK")
+      end
+    end
+
+    it "should withstand a lot of concurrent threads as of itself" do
+      500.times.map {
+        Thread.new {
+          Sunscraper.scrape_html(HTML_FUGA)
+        }
+      }.each(&:join).
+        map(&:value).
+        each { |result|
+        result.should include('It works!')
+      }
+    end
+
+    it "should withstand a lot of concurrent threads with a webserver" do
+      with_webserver(HTML_FUGA) do |url|
+        100.times.map {
+          Thread.new {
+            Sunscraper.scrape_url(url)
+          }
+        }.each(&:join).
+          map(&:value).
+          each { |result|
+          result.should include('It works!')
+        }
       end
     end
   end

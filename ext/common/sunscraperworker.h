@@ -19,16 +19,16 @@ public:
     
     static void unlock();
 
-    QString fetchHtml(unsigned queryId) const;
-
 signals:
     void finished(unsigned queryId);
     void timedOut(unsigned queryId);
+    void htmlFetched(unsigned queryId, QString data);
 
 public slots:
     void loadHtml(unsigned queryId, QString html, QUrl baseUrl);
     void loadUrl(unsigned queryId, QUrl url);
     void setTimeout(unsigned queryId, unsigned timeout);
+    void fetchHtml(unsigned queryId);
     void finalize(unsigned queryId);
 
 private slots:

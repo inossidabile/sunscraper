@@ -20,18 +20,22 @@ SunscraperInterface::SunscraperInterface() :
     m_worker->moveToThread(QApplication::instance()->thread());
 
     connect(this, SIGNAL(requestLoadHtml(uint,QString,QUrl)),
-        m_worker, SLOT(loadHtml(uint,QString,QUrl)), Qt::QueuedConnection);
+            m_worker, SLOT(loadHtml(uint,QString,QUrl)), Qt::QueuedConnection);
     connect(this, SIGNAL(requestLoadUrl(uint,QUrl)),
-        m_worker, SLOT(loadUrl(uint,QUrl)), Qt::QueuedConnection);
+            m_worker, SLOT(loadUrl(uint,QUrl)), Qt::QueuedConnection);
     connect(this, SIGNAL(requestTimeout(uint,uint)),
-        m_worker, SLOT(setTimeout(uint,uint)), Qt::QueuedConnection);
+            m_worker, SLOT(setTimeout(uint,uint)), Qt::QueuedConnection);
+    connect(this, SIGNAL(requestFetch(uint)),
+            m_worker, SLOT(fetchHtml(uint)), Qt::QueuedConnection);
     connect(this, SIGNAL(requestFinalize(uint)),
-        m_worker, SLOT(finalize(uint)), Qt::QueuedConnection);
+            m_worker, SLOT(finalize(uint)), Qt::QueuedConnection);
 
     connect(m_worker, SIGNAL(finished(uint)),
-        this, SLOT(onFinish(uint)), Qt::DirectConnection);
+            this, SLOT(onFinish(uint)), Qt::DirectConnection);
     connect(m_worker, SIGNAL(timedOut(uint)),
-        this, SLOT(onTimeout(uint)), Qt::DirectConnection);
+            this, SLOT(onTimeout(uint)), Qt::DirectConnection);
+    connect(m_worker, SIGNAL(htmlFetched(uint,QString)),
+            this, SLOT(onFetchDone(uint,QString)), Qt::DirectConnection);
 }
 
 SunscraperInterface *SunscraperInterface::instance()
@@ -42,6 +46,45 @@ SunscraperInterface *SunscraperInterface::instance()
         m_instance = new SunscraperInterface();
 
     return m_instance;
+}
+
+void SunscraperInterface::initSemaphore(unsigned queryId)
+{
+    QMutexLocker locker(&m_semaphoresMutex);
+
+    Q_ASSERT(m_semaphores[queryId] == NULL);
+
+    QSemaphore *semaphore = new QSemaphore(0);
+    m_semaphores[queryId] = semaphore;
+}
+
+void SunscraperInterface::waitOnSemaphore(unsigned queryId)
+{
+    m_semaphoresMutex.lock();
+
+    Q_ASSERT(m_semaphores[queryId] != NULL);
+
+    QSemaphore *semaphore = m_semaphores[queryId];
+
+    m_semaphoresMutex.unlock();
+
+    semaphore->acquire(1);
+
+    m_semaphoresMutex.lock();
+
+    delete semaphore;
+    m_semaphores.remove(queryId);
+
+    m_semaphoresMutex.unlock();
+}
+
+void SunscraperInterface::signalSemaphore(unsigned queryId)
+{
+    QMutexLocker locker(&m_semaphoresMutex);
+
+    Q_ASSERT(m_semaphores[queryId] != NULL);
+
+    m_semaphores[queryId]->release(1);
 }
 
 unsigned SunscraperInterface::createQuery()
@@ -81,36 +124,20 @@ bool SunscraperInterface::wait(unsigned queryId, unsigned timeout)
     qDebug() << "wait" << queryId << timeout;
 #endif
 
-    QSemaphore semaphore(0);
-
-    {
-        QMutexLocker locker(&m_resultsMutex);
-
-        Q_ASSERT(m_semaphores[queryId] == NULL);
-
-        m_semaphores[queryId] = &semaphore;
-    }
-
+    initSemaphore(queryId);
     emit requestTimeout(queryId, timeout);
-
-    semaphore.acquire(1);
+    waitOnSemaphore(queryId);
 
     /* There was either a finish or timeout */
 
-    bool success;
-
     {
         QMutexLocker locker(&m_resultsMutex);
 
-        Q_ASSERT(m_semaphores[queryId] != NULL);
-
-        success = m_results[queryId];
-
-        m_semaphores.remove(queryId);
+        bool success = m_results[queryId];
         m_results.remove(queryId);
-    }
 
-    return success;
+        return success;
+    }
 }
 
 void SunscraperInterface::onFinish(unsigned queryId)
@@ -120,11 +147,9 @@ void SunscraperInterface::onFinish(unsigned queryId)
 #endif
 
     QMutexLocker locker(&m_resultsMutex);
-
-    Q_ASSERT(m_semaphores[queryId] != NULL);
-
     m_results[queryId] = true;
-    m_semaphores[queryId]->release(1);
+
+    signalSemaphore(queryId);
 }
 
 void SunscraperInterface::onTimeout(unsigned queryId)
@@ -134,11 +159,21 @@ void SunscraperInterface::onTimeout(unsigned queryId)
 #endif
 
     QMutexLocker locker(&m_resultsMutex);
-
-    Q_ASSERT(m_semaphores[queryId] != NULL);
-
     m_results[queryId] = false;
-    m_semaphores[queryId]->release(1);
+
+    signalSemaphore(queryId);
+}
+
+void SunscraperInterface::onFetchDone(unsigned queryId, QString html)
+{
+#ifdef DEBUG_SUNSCRAPERINTERFACE
+    qDebug() << "onFetchDone" << queryId;
+#endif
+
+    QMutexLocker locker(&m_resultsMutex);
+    m_htmlCache[queryId] = html.toLocal8Bit();
+
+    signalSemaphore(queryId);
 }
 
 QByteArray SunscraperInterface::fetch(unsigned queryId)
@@ -147,7 +182,14 @@ QByteArray SunscraperInterface::fetch(unsigned queryId)
     qDebug() << "fetch" << queryId;
 #endif
 
-    return m_worker->fetchHtml(queryId).toLocal8Bit();
+    initSemaphore(queryId);
+    emit requestFetch(queryId);
+    waitOnSemaphore(queryId);
+
+    {
+        QMutexLocker locker(&m_resultsMutex);
+        return m_htmlCache[queryId];
+    }
 }
 
 void SunscraperInterface::finalize(unsigned queryId)
@@ -158,5 +200,7 @@ void SunscraperInterface::finalize(unsigned queryId)
 
     emit requestFinalize(queryId);
 
+    QMutexLocker locker(&m_resultsMutex);
     m_results.remove(queryId);
+    m_htmlCache.remove(queryId);
 }
