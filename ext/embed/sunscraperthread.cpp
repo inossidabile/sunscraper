@@ -7,6 +7,8 @@
 pthread_t SunscraperThread::m_thread;
 #endif
 
+extern void qt_set_current_thread_to_main_thread();
+
 void SunscraperThread::invoke()
 {
 #if defined(Q_OS_LINUX) || defined(Q_OS_UNIX)
@@ -22,6 +24,8 @@ void *SunscraperThread::thread_routine(void *)
 
     /* Why (char*)? Because argv can (theoretically) be modified. *
      * But Qt won't do that with argv[0]. I know, trust me.       */
+
+    qt_set_current_thread_to_main_thread();
 
     QApplication app(argc, argv);
     app.setApplicationName("Sunscraper-Embed");
