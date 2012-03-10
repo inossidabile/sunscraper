@@ -2,13 +2,12 @@ require 'spec_helper'
 
 require 'webrick'
 
-HTML = <<HTML
+HTML_TEMPLATE = <<HTML
 <html>
 <head>
   <script type="text/javascript">
   document.addEventListener("DOMContentLoaded", function() {
-    document.getElementById('fuga').textContent =
-              ("!skrow tI").split("").reverse().join("");
+    %code%
     Sunscraper.finish();
   }, true);
   </script>
@@ -19,48 +18,70 @@ HTML = <<HTML
 </html>
 HTML
 
-PORT = 45555
+HTML_FUGA = HTML_TEMPLATE.sub("%code%", <<CODE)
+    document.getElementById('fuga').textContent =
+              ("!skrow tI").split("").reverse().join("");
+CODE
 
-def with_webserver
-  server = WEBrick::HTTPServer.new :Port => PORT, :Logger => WEBrick::Log.new('/dev/null'), :AccessLog => []
+HTML_USERAGENT = HTML_TEMPLATE.sub("%code%", <<CODE)
+    document.getElementById('fuga').textContent =
+              window.navigator.userAgent;
+CODE
+
+HTML_LOCALSTORAGE = HTML_TEMPLATE.sub("%code%", <<CODE)
+    window.localStorage.setItem("key", ["O", "K"].join(""))
+    document.getElementById('fuga').textContent =
+              window.localStorage.getItem("key");
+CODE
+
+def with_webserver(html, port=32768 + rand(10000))
+  server = WEBrick::HTTPServer.new :Port => port, :Logger => WEBrick::Log.new('/dev/null'), :AccessLog => []
   server.mount_proc '/' do |req, res|
-    res.body = HTML
+    res.body = html
   end
   Thread.new { server.start }
 
-  yield PORT
+  yield "http://127.0.0.1:#{port}/"
 ensure
   server.shutdown if server
 end
 
-class String
-  def to_v
-    split(".").map(&:to_i).extend Comparable
+define_tests = lambda do |klass, worker|
+  describe klass do
+    before do
+      Sunscraper.worker = worker
+    end
+
+    it "can scrape an HTML provided as a string" do
+      Sunscraper.scrape_html(HTML_FUGA).should include('It works!')
+    end
+
+    it "can scrape an URL" do
+      with_webserver(HTML_FUGA) do |url|
+        Sunscraper.scrape_url(url).should include('It works!')
+      end
+    end
+
+    it "should time out if callback is not called" do
+      lambda { Sunscraper.scrape_html("<!-- nothing. at least no callbacks -->", 500) }.
+          should raise_exception(Sunscraper::ScrapeTimeout)
+    end
+
+    it "should identify itself as Sunscraper" do
+      Sunscraper.scrape_html(HTML_USERAGENT).should include("Sunscraper")
+    end
+
+    it "should work with window.localStorage through webserver" do
+      with_webserver(HTML_LOCALSTORAGE) do |url|
+        Sunscraper.scrape_url(url).should include("OK")
+      end
+    end
   end
 end
 
 unless Sunscraper.os_x?
   # This part currently crashes on OS X (and will forever).
-  describe "Sunscraper::Library" do
-    before do
-      Sunscraper.worker = :embed
-    end
-
-    it "can scrape an HTML provided as a string" do
-      Sunscraper.scrape_html(HTML).should include('It works!')
-    end
-
-    it "can scrape an URL" do
-      with_webserver do |port|
-        Sunscraper.scrape_url("http://127.0.0.1:#{port}/").should include('It works!')
-      end
-    end
-
-    it "should time out if callback is not called" do
-      lambda { Sunscraper.scrape_html("<!-- nothing. at least no callbacks -->", 1000) }.
-          should raise_exception(Sunscraper::ScrapeTimeout)
-    end
-  end
+  define_tests.("Sunscraper-Embed", :embed)
 end
 
 if !(RUBY_ENGINE =~ /rbx/ || RUBY_ENGINE =~ /jruby/) ||
@@ -68,24 +89,5 @@ if !(RUBY_ENGINE =~ /rbx/ || RUBY_ENGINE =~ /jruby/) ||
   # This part currently crashes Rubinius (as of Mar 09, 2012),
   # and crashes jruby < 1.7.0, and uses Unix sockets which don't
   # work even on jruby master (as of Mar 09, 2012).
-  describe "Sunscraper::Standalone" do
-    before do
-      Sunscraper.worker = :standalone
-    end
-
-    it "can scrape an HTML provided as a string" do
-      Sunscraper.scrape_html(HTML).should include('It works!')
-    end
-
-    it "can scrape an URL" do
-      with_webserver do |port|
-        Sunscraper.scrape_url("http://127.0.0.1:#{port}/").should include('It works!')
-      end
-    end
-
-    it "should time out if callback is not called" do
-      lambda { Sunscraper.scrape_html("<!-- nothing. at least no callbacks -->", 1000) }.
-          should raise_exception(Sunscraper::ScrapeTimeout)
-    end
-  end
+  define_tests.("Sunscraper-Standalone", :standalone)
 end

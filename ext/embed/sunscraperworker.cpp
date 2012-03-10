@@ -49,6 +49,7 @@ void *SunscraperWorker::thread_routine(void *)
     //qDebug() << "b";
 
     QApplication app(argc, argv);
+    app.setApplicationName("Sunscraper-Embed");
 
     if(m_instance != NULL)
         qFatal("Attempt to invoke SunscraperWorker more than once");

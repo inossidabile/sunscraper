@@ -6,6 +6,7 @@
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
+    app.setApplicationName("Sunscraper-Standalone");
 
     SunscraperRPC rpc(app.arguments().at(1));
 
