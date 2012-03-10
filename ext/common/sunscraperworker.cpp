@@ -86,7 +86,10 @@ void SunscraperWorker::onJavascriptObjectCleared()
     QWebPage *page = origin->page();
 
     unsigned queryId = m_webPages.key(page, 0);
-    Q_ASSERT(queryId != 0);
+
+    /* Called on an already finalized page in the process of finalization. */
+    if(queryId == 0)
+        return;
 
     SunscraperProxy *proxy = new SunscraperProxy(page, queryId);
     connect(proxy, SIGNAL(finished(uint)), this, SLOT(onFinish(uint)));
