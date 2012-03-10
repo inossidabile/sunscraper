@@ -1,19 +1,21 @@
 QT += webkit
 
-TARGET = sunscraper
+TARGET   = sunscraper
 TEMPLATE = lib
 
-SOURCES += sunscraperlibrary.cpp \
-    sunscraperworker.cpp \
-    sunscraperwebpage.cpp \
-    sunscraperexternal.cpp \
-    sunscraper.cpp \
-    sunscraperproxy.cpp
+SOURCES += sunscraperexternal.cpp \
+    sunscraperlibrary.cpp \
+    sunscraperinterface.cpp \
+    sunscraperthread.cpp
 
 HEADERS += sunscraperlibrary.h \
-    sunscraperworker.h \
-    sunscraperwebpage.h \
-    sunscraper.h \
-    sunscraperproxy.h
+    sunscraperinterface.h \
+    sunscraperthread.h
 
-linux:LDFLAGS += -pthread
+INCLUDEPATH += ../common
+
+unix:{
+    LIBS += -L../common -lsunscraper_common
+    POST_TARGETDEPS += ../common/libsunscraper_common.a
+    LDFLAGS += -pthread
+}

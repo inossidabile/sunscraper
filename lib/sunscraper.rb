@@ -27,9 +27,9 @@ module Sunscraper
     # If your application depends on base URL being available, use {scrape_url}.
     #
     # @param [Integer] timeout timeout in milliseconds
-    def scrape_html(html, timeout=5000)
+    def scrape_html(html, url="about:blank", timeout=5000)
       scrape(timeout) do |worker, context|
-        worker.load_html context, html
+        worker.load_html context, html, url
       end
     end
 
@@ -47,19 +47,19 @@ module Sunscraper
     def scrape(timeout)
       worker = load_worker
 
-      context = worker.create
-      yield worker, context
-      worker.wait(context, timeout)
+      begin
+        context = worker.create
 
-      data = worker.fetch(context)
+        yield worker, context
 
-      if data == "!SUNSCRAPER_TIMEOUT"
-        raise ScrapeTimeout, "Sunscraper has timed out waiting for the callback"
-      else
-        data
+        if worker.wait(context, timeout)
+          worker.fetch(context)
+        else
+          raise ScrapeTimeout, "Sunscraper has timed out waiting for the callback"
+        end
+      ensure
+        worker.finalize(context) if context
       end
-    ensure
-      worker.discard(context) if context
     end
 
     def load_worker

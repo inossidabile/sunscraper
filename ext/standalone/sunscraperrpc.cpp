@@ -4,8 +4,8 @@
 #include <QApplication>
 #include <QtDebug>
 #include <arpa/inet.h>
+#include <sunscraperworker.h>
 #include "sunscraperrpc.h"
-#include "sunscraperworker.h"
 
 SunscraperRPC::SunscraperRPC(QString socketPath) :
         m_state(StateHeader)

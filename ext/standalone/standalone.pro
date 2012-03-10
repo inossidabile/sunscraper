@@ -3,11 +3,15 @@ QT += webkit network
 TARGET = sunscraper
 TEMPLATE = app
 
-SOURCES += sunscraperproxy.cpp \
-    sunscraperworker.cpp \
-    sunscraperrpc.cpp \
+SOURCES += sunscraperrpc.cpp \
     sunscrapermain.cpp
 
-HEADERS += sunscraperproxy.h \
-    sunscraperrpc.h \
-    sunscraperworker.h
+HEADERS += sunscraperrpc.h
+
+INCLUDEPATH += ../common
+
+unix:{
+    LIBS += -L../common -lsunscraper_common
+    POST_TARGETDEPS += ../common/libsunscraper_common.a
+    LDFLAGS += -pthread
+}

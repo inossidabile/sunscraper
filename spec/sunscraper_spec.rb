@@ -1,5 +1,4 @@
 require 'spec_helper'
-
 require 'webrick'
 
 HTML_TEMPLATE = <<HTML
@@ -8,7 +7,6 @@ HTML_TEMPLATE = <<HTML
   <script type="text/javascript">
   document.addEventListener("DOMContentLoaded", function() {
     %code%
-    Sunscraper.finish();
   }, true);
   </script>
 </head>
@@ -21,17 +19,32 @@ HTML
 HTML_FUGA = HTML_TEMPLATE.sub("%code%", <<CODE)
     document.getElementById('fuga').textContent =
               ("!skrow tI").split("").reverse().join("");
+    Sunscraper.finish();
+CODE
+
+HTML_BASEURL = HTML_TEMPLATE.sub("%code%", <<CODE)
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+      if(xhr.readyState > 3) {
+        document.getElementById('fuga').textContent = xhr.responseText;
+        Sunscraper.finish();
+      }
+    };
+    xhr.open('GET', '/comicstrip', 1);
+    xhr.send();
 CODE
 
 HTML_USERAGENT = HTML_TEMPLATE.sub("%code%", <<CODE)
     document.getElementById('fuga').textContent =
               window.navigator.userAgent;
+    Sunscraper.finish();
 CODE
 
 HTML_LOCALSTORAGE = HTML_TEMPLATE.sub("%code%", <<CODE)
     window.localStorage.setItem("key", ["O", "K"].join(""))
     document.getElementById('fuga').textContent =
               window.localStorage.getItem("key");
+    Sunscraper.finish();
 CODE
 
 def with_webserver(html, port=32768 + rand(10000))
@@ -41,7 +54,7 @@ def with_webserver(html, port=32768 + rand(10000))
   end
   Thread.new { server.start }
 
-  yield "http://127.0.0.1:#{port}/"
+  yield "http://127.0.0.1:#{port}/", server
 ensure
   server.shutdown if server
 end
@@ -63,8 +76,18 @@ define_tests = lambda do |klass, worker|
     end
 
     it "should time out if callback is not called" do
-      lambda { Sunscraper.scrape_html("<!-- nothing. at least no callbacks -->", 500) }.
+      lambda { Sunscraper.scrape_html("<!-- nothing. at least no callbacks -->", "about:blank", 500) }.
           should raise_exception(Sunscraper::ScrapeTimeout)
+    end
+
+    it "respects baseUrl parameter" do
+      with_webserver("<!-- nothing -->") do |url, server|
+        server.mount_proc '/comicstrip' do |req, res|
+          res.body = 'Go Get a Roomie!'
+        end
+
+        Sunscraper.scrape_html(HTML_BASEURL, url).should include('Go Get a Roomie')
+      end
     end
 
     it "should identify itself as Sunscraper" do
@@ -89,5 +112,5 @@ if !(RUBY_ENGINE =~ /rbx/ || RUBY_ENGINE =~ /jruby/) ||
   # This part currently crashes Rubinius (as of Mar 09, 2012),
   # and crashes jruby < 1.7.0, and uses Unix sockets which don't
   # work even on jruby master (as of Mar 09, 2012).
-  define_tests.("Sunscraper-Standalone", :standalone)
+  #define_tests.("Sunscraper-Standalone", :standalone)
 end

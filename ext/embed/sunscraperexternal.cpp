@@ -1,39 +1,40 @@
-#include "sunscraper.h"
-#include "sunscraperworker.h"
+#include "sunscraperinterface.h"
+#include "sunscraperthread.h"
 
 extern "C" {
-    Sunscraper *sunscraper_create()
+    unsigned sunscraper_create()
     {
-        return new Sunscraper();
+        return SunscraperInterface::instance()->createQuery();
     }
 
-    void sunscraper_load_html(Sunscraper *sunscraper, const char *html)
+    void sunscraper_load_html(unsigned queryId, const char *html, const char *url)
     {
-        sunscraper->loadHtml(html);
+        SunscraperInterface::instance()->loadHtml(queryId, html, QUrl(url));
     }
 
-    void sunscraper_load_url(Sunscraper *sunscraper, const char *url)
+    void sunscraper_load_url(unsigned queryId, const char *url)
     {
-        sunscraper->loadUrl(url);
+        SunscraperInterface::instance()->loadUrl(queryId, QUrl(url));
     }
 
-    void sunscraper_wait(Sunscraper *sunscraper, unsigned timeout)
+    int sunscraper_wait(unsigned queryId, unsigned timeout)
     {
-        sunscraper->wait(timeout);
+        return SunscraperInterface::instance()->wait(queryId, timeout);
     }
 
-    const char *sunscraper_fetch(Sunscraper *sunscraper)
+    const char *sunscraper_fetch(unsigned queryId)
     {
-        return sunscraper->fetchAsCString();
+        /* VERIFY that the string won't be deleted prematurely */
+        return SunscraperInterface::instance()->fetch(queryId).constData();
     }
 
-    void sunscraper_discard(Sunscraper *sunscraper)
+    void sunscraper_finalize(unsigned queryId)
     {
-        delete sunscraper;
+        SunscraperInterface::instance()->finalize(queryId);
     }
 
-    void sunscraper_finalize()
+    void sunscraper_quit()
     {
-        SunscraperWorker::commitSuicide();
+        SunscraperThread::commitSuicide();
     }
 }

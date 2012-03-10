@@ -3,22 +3,22 @@
 
 #include <QObject>
 
-class QWebPage;
-
 class SunscraperProxy : public QObject
 {
     Q_OBJECT
+
 public:
-    SunscraperProxy(QWebPage *parent, unsigned queryId);
+    SunscraperProxy(QObject *parent, unsigned queryId);
 
     Q_INVOKABLE void finish();
 
 signals:
-    void finished(unsigned queryId, QString html);
+    void finished(unsigned queryId);
 
 private:
-    QWebPage *m_webPage;
     unsigned m_queryId;
+
+    SunscraperProxy();
 };
 
 #endif // SUNSCRAPERPROXY_H

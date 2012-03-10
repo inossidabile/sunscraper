@@ -10,7 +10,6 @@ public:
 private:
     SunscraperLibrary();
     SunscraperLibrary(SunscraperLibrary &);
-    ~SunscraperLibrary();
 
     static SunscraperLibrary m_instance;
 };
