@@ -1,7 +1,7 @@
 #include <QApplication>
 #include <QStringList>
 #include "sunscraperworker.h"
-#include "sunscraperrpc.h"
+#include "sunscraperrpcserver.h"
 
 int main(int argc, char **argv)
 {
@@ -10,7 +10,14 @@ int main(int argc, char **argv)
 
     SunscraperWorker::unlock();
 
-    SunscraperRPC rpc(app.arguments().at(1));
+    SunscraperRPCServer *rpcServer = new SunscraperRPCServer();
 
-    return app.exec();
+    QString socketPath = app.arguments().at(1);
+    if(!rpcServer->listen(socketPath)) {
+        qFatal("Cannot listen on %s", socketPath.toLocal8Bit().constData());
+    }
+
+    app.exec();
+
+    qFatal("finished");
 }

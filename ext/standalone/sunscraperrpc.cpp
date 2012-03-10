@@ -7,15 +7,21 @@
 #include <sunscraperworker.h>
 #include "sunscraperrpc.h"
 
-SunscraperRPC::SunscraperRPC(QString socketPath) :
-        m_state(StateHeader)
+SunscraperWorker *SunscraperRPC::m_worker;
+unsigned SunscraperRPC::m_nextQueryId;
+
+SunscraperRPC::SunscraperRPC(QLocalSocket *socket) :
+        m_socket(socket), m_state(StateHeader)
 {
-    m_socket = new QLocalSocket(this);
-    m_socket->connectToServer(socketPath);
+    m_nextQueryId += 1;
+    m_queryId = m_nextQueryId;
+
     connect(m_socket, SIGNAL(readyRead()), this, SLOT(onInputReadable()));
     connect(m_socket, SIGNAL(disconnected()), this, SLOT(onInputDisconnected()));
 
-    m_worker = new SunscraperWorker(this);
+    if(m_worker == NULL)
+        m_worker = new SunscraperWorker();
+
     connect(m_worker, SIGNAL(finished(uint)), this, SLOT(onFinish(uint)));
     connect(m_worker, SIGNAL(timedOut(uint)), this, SLOT(onTimeout(uint)));
     connect(m_worker, SIGNAL(htmlFetched(uint,QString)), this, SLOT(onFetchDone(uint,QString)));
@@ -23,7 +29,7 @@ SunscraperRPC::SunscraperRPC(QString socketPath) :
 
 SunscraperRPC::~SunscraperRPC()
 {
-    delete m_worker;
+    delete m_socket;
 }
 
 void SunscraperRPC::onInputReadable()
@@ -34,9 +40,13 @@ void SunscraperRPC::onInputReadable()
     while(moreData) {
         switch(m_state) {
         case StateHeader:
-            if((unsigned) m_buffer.length() >= sizeof(Header)) {
-                memcpy((void*) &m_pendingHeader, m_buffer.constData(), sizeof(Header));
-                m_buffer.remove(0, sizeof(Header));
+            if((unsigned) m_buffer.length() >= sizeof(quint32) * 2) {
+                QDataStream stream(m_buffer);
+                stream >> (quint32&) m_pendingRequest;
+                stream >> (quint32&) m_pendingDataLength;
+
+                m_buffer.remove(0, sizeof(quint32) * 2);
+
                 m_state = StateData;
             } else {
                 moreData = false;
@@ -45,18 +55,11 @@ void SunscraperRPC::onInputReadable()
             break;
 
         case StateData:
-            unsigned length = ntohl(m_pendingHeader.dataLength);
+            if((unsigned) m_buffer.length() >= m_pendingDataLength) {
+                QByteArray data = m_buffer.left(m_pendingDataLength);
+                m_buffer.remove(0, m_pendingDataLength);
 
-            if((unsigned) m_buffer.length() >= length) {
-                QByteArray data = m_buffer.left(length);
-                m_buffer.remove(0, length);
-
-                unsigned queryId, requestType;
-
-                queryId     = ntohl(m_pendingHeader.queryId);
-                requestType = ntohl(m_pendingHeader.requestType);
-
-                processRequest(queryId, requestType, data);
+                processRequest(m_pendingRequest, data);
 
                 m_state = StateHeader;
             } else {
@@ -70,10 +73,12 @@ void SunscraperRPC::onInputReadable()
 
 void SunscraperRPC::onInputDisconnected()
 {
-    QApplication::exit();
+    m_worker->finalize(m_queryId);
+
+    emit disconnected();
 }
 
-void SunscraperRPC::processRequest(unsigned queryId, unsigned requestType, QByteArray data)
+void SunscraperRPC::processRequest(unsigned requestType, QByteArray data)
 {
     switch(requestType) {
     case RPC_LOAD_HTML: {
@@ -85,87 +90,82 @@ void SunscraperRPC::processRequest(unsigned queryId, unsigned requestType, QByte
             QByteArray baseUrl;
             stream >> baseUrl;
 
-            m_worker->loadHtml(queryId, html, QUrl(baseUrl));
+            m_worker->loadHtml(m_queryId, html, QUrl(baseUrl));
 
             break;
         }
 
     case RPC_LOAD_URL: {
-            m_worker->loadUrl(queryId, QUrl(data));
+            m_worker->loadUrl(m_queryId, QUrl(data));
 
             break;
         }
 
     case RPC_WAIT: {
-            if(m_results[queryId]) {
-                onFinish(queryId);
-            } else {
+            if(!m_result) {
                 QDataStream stream(data);
 
                 unsigned timeout;
                 stream >> timeout;
 
-                m_worker->setTimeout(queryId, timeout);
+                m_worker->setTimeout(m_queryId, timeout);
             }
 
             break;
         }
 
     case RPC_FETCH: {
-            m_worker->fetchHtml(queryId);
-
-            break;
-        }
-
-    case RPC_FINALIZE: {
-            m_results.remove(queryId);
-
-            m_worker->finalize(queryId);
+            m_worker->fetchHtml(m_queryId);
 
             break;
         }
     }
 }
 
-void SunscraperRPC::onFinish(unsigned queryId)
+void SunscraperRPC::onFinish(unsigned eventQueryId)
 {
-    QByteArray data;
-    QDataStream stream(&data, QIODevice::WriteOnly);
+    if(eventQueryId != m_queryId)
+        return;
 
+    QByteArray data;
+
+    QDataStream stream(&data, QIODevice::WriteOnly);
     stream << (int) true;
 
-    sendReply(queryId, RPC_WAIT, data);
+    sendReply(data);
 
-    m_results[queryId] = true;
+    m_result = true;
 }
 
-void SunscraperRPC::onTimeout(unsigned queryId)
+void SunscraperRPC::onTimeout(unsigned eventQueryId)
 {
-    QByteArray data;
-    QDataStream stream(&data, QIODevice::WriteOnly);
+    if(eventQueryId != m_queryId)
+        return;
 
+    QByteArray data;
+
+    QDataStream stream(&data, QIODevice::WriteOnly);
     stream << (int) false;
 
-    sendReply(queryId, RPC_WAIT, data);
+    sendReply(data);
 
-    m_results[queryId] = true;
+    m_result = false;
 }
 
-void SunscraperRPC::onFetchDone(unsigned queryId, QString data)
+void SunscraperRPC::onFetchDone(unsigned eventQueryId, QString data)
 {
-    sendReply(queryId, RPC_FETCH, data.toLocal8Bit());
+    if(eventQueryId != m_queryId)
+        return;
+
+    sendReply(data.toLocal8Bit());
 }
 
-void SunscraperRPC::sendReply(unsigned queryId, unsigned requestType, QByteArray data)
+void SunscraperRPC::sendReply(QByteArray data)
 {
-    Header header;
+    QByteArray packet;
 
-    header.queryId     = ntohl(queryId);
-    header.requestType = ntohl(requestType);
-    header.dataLength  = htonl(data.length());
+    QDataStream stream(&packet, QIODevice::WriteOnly);
+    stream << data;
 
-    QByteArray serialized((const char*) &header, sizeof(Header));
-    serialized.append(data);
-
-    m_socket->write(serialized);
+    m_socket->write(packet);
 }

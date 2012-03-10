@@ -49,30 +49,29 @@ CODE
 
 def with_webserver(html)
   port = 45555
-  pid = fork {
-    server = WEBrick::HTTPServer.new :Port => port, :Logger => WEBrick::Log.new('/dev/null'), :AccessLog => []
-    server.mount_proc '/' do |req, res|
-      res.body = html
-    end
-    server.mount_proc '/comicstrip' do |req, res|
-      res.body = 'Go Get a Roomie!'
-    end
-    server.start
-    exit!
-  }
+  server = WEBrick::HTTPServer.new :Port => port, :Logger => WEBrick::Log.new('/dev/null'), :AccessLog => []
+  server.mount_proc '/' do |req, res|
+    res.body = html
+  end
+  server.mount_proc '/comicstrip' do |req, res|
+    res.body = 'Go Get a Roomie!'
+  end
+  thread = Thread.new { server.start }
 
   yield "http://127.0.0.1:#{port}/"
 ensure
-  if pid
-    Process.kill "KILL", pid
-    Process.wait
-  end
+  server.shutdown
+  thread.join
 end
 
 define_tests = lambda do |klass, worker|
   describe klass do
-    before do
+    before(:all) do
       Sunscraper.worker = worker
+    end
+
+    after(:all) do
+      sleep(5) # let threads rest in peace
     end
 
     it "can scrape an HTML provided as a string" do
@@ -106,7 +105,7 @@ define_tests = lambda do |klass, worker|
       end
     end
 
-    it "should withstand a lot of concurrent threads as of itself" do
+    it "should withstand a lot of concurrent threads" do
       500.times.map {
         Thread.new {
           Sunscraper.scrape_html(HTML_FUGA)
@@ -116,20 +115,6 @@ define_tests = lambda do |klass, worker|
         each { |result|
         result.should include('It works!')
       }
-    end
-
-    it "should withstand a lot of concurrent threads with a webserver" do
-      with_webserver(HTML_FUGA) do |url|
-        100.times.map {
-          Thread.new {
-            Sunscraper.scrape_url(url)
-          }
-        }.each(&:join).
-          map(&:value).
-          each { |result|
-          result.should include('It works!')
-        }
-      end
     end
   end
 end

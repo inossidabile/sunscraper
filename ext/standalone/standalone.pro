@@ -4,9 +4,11 @@ TARGET = sunscraper
 TEMPLATE = app
 
 SOURCES += sunscraperrpc.cpp \
+    sunscraperrpcserver.cpp \
     sunscrapermain.cpp
 
-HEADERS += sunscraperrpc.h
+HEADERS += sunscraperrpc.h \
+    sunscraperrpcserver.h
 
 INCLUDEPATH += ../common
 
