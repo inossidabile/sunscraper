@@ -82,9 +82,8 @@ void SunscraperInterface::signalSemaphore(unsigned queryId)
 {
     QMutexLocker locker(&m_semaphoresMutex);
 
-    Q_ASSERT(m_semaphores[queryId] != NULL);
-
-    m_semaphores[queryId]->release(1);
+    if(m_semaphores.contains(queryId))
+        m_semaphores[queryId]->release(1);
 }
 
 unsigned SunscraperInterface::createQuery()
