@@ -1,8 +1,10 @@
 *.user
 *.o
+*.a
 *.so*
 *.dylib
 *.dll
+*.app
 moc_*
 Makefile
 standalone/sunscraper
