@@ -105,16 +105,18 @@ define_tests = lambda do |klass, worker|
       end
     end
 
-    it "should withstand a lot of concurrent threads" do
-      500.times.map {
-        Thread.new {
-          Sunscraper.scrape_html(HTML_FUGA)
+    if worker == :embed
+      it "should withstand a lot of concurrent threads" do
+        100.times.map {
+          Thread.new {
+            Sunscraper.scrape_html(HTML_FUGA)
+          }
+        }.each(&:join).
+          map(&:value).
+          each { |result|
+          result.should include('It works!')
         }
-      }.each(&:join).
-        map(&:value).
-        each { |result|
-        result.should include('It works!')
-      }
+      end
     end
   end
 end
