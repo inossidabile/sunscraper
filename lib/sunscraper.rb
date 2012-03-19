@@ -55,7 +55,7 @@ module Sunscraper
         if worker.wait(context, timeout)
           worker.fetch(context)
         else
-          raise ScrapeTimeout, "Sunscraper has timed out waiting for the callback"
+          raise ScrapeTimeout, "Sunscraper has timed out waiting for the callback (#{timeout} ms passed)"
         end
       ensure
         worker.finalize(context) if context
