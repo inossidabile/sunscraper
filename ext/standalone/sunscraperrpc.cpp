@@ -7,11 +7,13 @@
 #include <sunscraperworker.h>
 #include "sunscraperrpc.h"
 
+//#define DEBUG_SUNSCRAPERRPC
+
 SunscraperWorker *SunscraperRPC::m_worker;
 unsigned SunscraperRPC::m_nextQueryId;
 
 SunscraperRPC::SunscraperRPC(QLocalSocket *socket) :
-        m_socket(socket), m_state(StateHeader)
+        m_socket(socket), m_state(StateHeader), m_result(false)
 {
     m_nextQueryId += 1;
     m_queryId = m_nextQueryId;
@@ -80,6 +82,10 @@ void SunscraperRPC::onInputDisconnected()
 
 void SunscraperRPC::processRequest(unsigned requestType, QByteArray data)
 {
+#ifdef DEBUG_SUNSCRAPERRPC
+    qDebug() << QString("request(%1)").arg(m_queryId) << requestType << data;
+#endif
+
     switch(requestType) {
     case RPC_LOAD_HTML: {
             QDataStream stream(data);
@@ -127,6 +133,10 @@ void SunscraperRPC::onFinish(unsigned eventQueryId)
     if(eventQueryId != m_queryId)
         return;
 
+#ifdef DEBUG_SUNSCRAPERRPC
+    qDebug() << QString("finish(%1)").arg(m_queryId);
+#endif
+
     QByteArray data;
 
     QDataStream stream(&data, QIODevice::WriteOnly);
@@ -141,6 +151,10 @@ void SunscraperRPC::onTimeout(unsigned eventQueryId)
 {
     if(eventQueryId != m_queryId)
         return;
+
+#ifdef DEBUG_SUNSCRAPERRPC
+    qDebug() << QString("timeout(%1)").arg(m_queryId);
+#endif
 
     QByteArray data;
 
@@ -157,12 +171,20 @@ void SunscraperRPC::onFetchDone(unsigned eventQueryId, QString data)
     if(eventQueryId != m_queryId)
         return;
 
+#ifdef DEBUG_SUNSCRAPERRPC
+    qDebug() << QString("fetchDone(%1)").arg(m_queryId);
+#endif
+
     sendReply(data.toLocal8Bit());
 }
 
 void SunscraperRPC::sendReply(QByteArray data)
 {
     QByteArray packet;
+
+#ifdef DEBUG_SUNSCRAPERRPC
+    qDebug() << QString("reply(%1)").arg(m_queryId) << data;
+#endif
 
     QDataStream stream(&packet, QIODevice::WriteOnly);
     stream << data;
