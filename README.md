@@ -52,14 +52,16 @@ variable. Consider using [Xvfb][] on a GUI-less production server.
 Compatibility
 -------------
 
-![Travis CI](https://secure.travis-ci.org/roundlake/sunscraper.png)
-
 Sunscraper should be compatible across all major implementations on all major operating systems, including
 Ruby MRI 1.9, JRuby, Rubinius and MacRuby running on GNU/Linux, OS X and Windows.
 
 JRuby versions up to 1.6.5 are known not to work due to a bug in its FFI library.
 
 Ruby MRI 1.8 is not supported because it has a braindead threading model and will never be because I don't care.
+
+Qt 4.7.2 has a race condition in QtWebkit internals which sometimes prevents pages from
+loading. Use Qt versions not less than 4.7.4 to avoid this bug. As (at this moment) Travis
+only has Qt 4.7.2, you cannot test Sunscraper-dependent gems on Travis.
 
 Thread safety
 -------------
