@@ -63,6 +63,8 @@ Qt 4.7.2 has a race condition in QtWebkit internals which sometimes prevents pag
 loading. Use Qt versions not less than 4.7.4 to avoid this bug. As (at this moment) Travis
 only has Qt 4.7.2, you cannot test Sunscraper-dependent gems on Travis.
 
+However Qt 4.6.3 from Debian stable repositories showed itself working quite well in production mode and can considered a good choice.
+
 Thread safety
 -------------
 
