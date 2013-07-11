@@ -13,15 +13,11 @@ rvm:
   - jruby-head
   - rbx-19mode
 env:
-  - EXPERIMENTAL=true
   - EXPERIMENTAL=false
+  - EXPERIMENTAL=true
 matrix:
   exclude:
     - rvm: 1.9.2
     - rvm: 1.9.3
-  allow_fail:
+  allow_failures:
     - env: EXPERIMENTAL=true
-notifications:
-  email:
-    - boris@roundlake.ru
-    - p.zotov@roundlake.ru
