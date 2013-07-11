@@ -1,6 +1,8 @@
 Sunscraper
 ==========
 
+**DEPRECATED**: Sunscraper is not actively supported anymore. We are still here to accept pull requests but you better be using another headless scraping solution.
+
 Sunscraper is a gem for prerendering pages with hashbang URLs like `http://whatever.com/#!/page`.
 
 It works by loading content in the embedded web browser and waiting for a JavaScript method to be
@@ -70,15 +72,13 @@ Thread safety
 
 Sunscraper is thread-safe.
 
-Credits
--------
+Maintainers
+-----------
 
-<img src="http://roundlake.ru/assets/logo.png" align="right" />
+* Peter Zotov, [@whitequark](http://twitter.com/whitequark)
+* Boris Staal, [@inossidabile](http://staal.io)
 
-* Peter Zotov ([@whitequark](http://twitter.com/#!/whitequark))
-* Boris Staal ([@_inossidabile](http://twitter.com/#!/_inossidabile))
-
-LICENSE
+License
 -------
 
 It is free software, and may be redistributed under the terms of MIT license.
